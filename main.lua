@@ -1,3 +1,7 @@
+local CREDITS = {
+	"LeDark Lua a.k.a. Laurynas Šuopys",	
+}
+
 local socket = require("socket")
 local floor=math.floor
 local ceil=math.ceil
