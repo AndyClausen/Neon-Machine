@@ -26,7 +26,7 @@ local progs = {}
 G_ENV = {
 	[ "gfx" ] = {};
 	[ "network" ] = {
-		[ "connected" ] = function()
+		[ "isConnected" ] = function()
 			local test = socket.tcp()
 			test:settimeout(1000)
 			local testResult = test:connect("www.google.com", 80)
