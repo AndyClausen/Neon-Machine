@@ -1,5 +1,5 @@
 # LuaOS
-A simple "Operating System" built with Love and Lua for all devices.
+A simple "Virtual Machine" built with Love2D and Lua for all devices.
 
 ## TODO:
 * **Slow rendering**  Need to make that all the rendering would be done on GPU not the CPU
