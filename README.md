@@ -6,6 +6,7 @@ A simple "Virtual Machine" built with Love2D and Lua for all devices.
 * Virtual CPU speed is fixed, need to calculate that and determine when to slow down the program.
 * Need to add networking.
 * Need to add HTML stuff.
+* Calculate current storage at root folder.
 
 ## Known bugs:
 None at the moment.
