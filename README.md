@@ -8,7 +8,7 @@ A simple "Operating System" built with Love and Lua for all devices.
 * Need to add HTML stuff.
 
 ## Known bugs:
-None.
+None at the moment.
 
 ## Who can contribute?
 Everyone who wants to make this **project** a reality!
