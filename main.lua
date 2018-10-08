@@ -15,6 +15,8 @@ local win = {
 	[ "height" ] = 240;
 	[ "scale" ] = 3;
 }
+local blueCutoff = 0
+local blueAmount = 5
 local MAKE_TRUE_SIZE = 4
 local MAX_RAM = 16384
 local USED_RAM = 0 
@@ -146,6 +148,13 @@ G_ENV = {
 		end;
 	};
 	[ "sys" ] = {
+		[ "filterBlue" ] = function( amount )
+			if amount > 0 and amount <= 1 then
+				blueCutoff = floor( blueAmount*amount )
+			else
+				blueCutoff = 0
+			end
+		end;
 		[ "setScreenMode" ] = function( mode )
 			if mode == "low" then
 				win.scale = 2
@@ -312,7 +321,9 @@ function love.draw()
 		for i=0, gfxSize do
 			local curr = gfx[ i ]
 			if curr[ 1 ] > 0 then
-				setColor( (curr[ 1 ]*17)*twofivefive, (curr[ 2 ]*17)*twofivefive, (curr[ 3 ]*17)*twofivefive )
+				local b = curr[ 3 ]-blueCutoff
+				if b < 0 then b = 0 end
+				setColor( (curr[ 1 ]*17)*twofivefive, (curr[ 2 ]*17)*twofivefive, (b*17)*twofivefive )
 				point( screen_xoff+(i%winw)*wins, screen_yoff+floor(i*winww)*wins )
 			end
 		end
