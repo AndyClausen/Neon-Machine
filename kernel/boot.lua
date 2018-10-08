@@ -6,13 +6,14 @@ gfx.drawFillRect=function(x, y, w, h, rgb)
 		end
 	end
 end
+local round = math.round
 gfx.drawFillRectAlpha=function(x, y, w, h, rgba)
 	for j=y, (y+h)-1 do
 		for i=x, (x+w)-1 do
 			rOut = ((rgba[1] * rgba[4]) / 15) + ((gfx.getPixel( i, j )[1] * 15 * ( 15 - rgba[4] )) / 225)
 			gOut = ((rgba[2] * rgba[4]) / 15) + ((gfx.getPixel( i, j )[2] * 15 * ( 15 - rgba[4] )) / 225)
 			bOut = ((rgba[3] * rgba[4]) / 15) + ((gfx.getPixel( i, j )[3] * 15 * ( 15 - rgba[4] )) / 225)
-			gfx.putPixel(i, j, {math.round(rOut),math.round(gOut),math.round(bOut)})
+			gfx.putPixel(i, j, {round(rOut),round(gOut),round(bOut)})
 		end
 	end
 end
@@ -67,26 +68,48 @@ font.set=function(name)
 		error("ERR")
 	end
 end
+local tochar=string.byte
+font.getWidth=function(chr)
+	local curr=font.fonts[font.current]
+	if curr then
+		local char=tochar(chr)-0x1F
+		local x = 0
+		for yy=1, #curr do
+			local curryy=curr[yy]
+			if #curryy[char] > x then
+				x = #curryy[char]
+			end
+		end
+		return x
+	end
+end
+font.getHeight=function()
+	local curr=font.fonts[font.current]
+	if curr then
+		return #curr
+	end
+end
 gfx.print=function(v, x, y, c)
 	if font.current then
 		x = x - 1
 		v=tostring(v)
 		local offset=0
 		for i=1, #v do
-			local char=string.byte(v, i)-0x1F
+			local char=tochar(v, i)-0x1F
 			local curr=font.fonts[font.current]
-			for yy=1, 5 do
-				for j=1, 3 do
-					if curr[yy] then
-						if curr[yy][char] then
-							if curr[yy][char][j]==1 then
+			for yy=1, #curr do
+				local curryy=curr[yy]
+				for j=1, #curryy do
+					if curryy then
+						if curryy[char] then
+							if curryy[char][j]==1 then
 								gfx.putPixel(x+j+offset, y+(yy-1), c)
 							end
 						end
 					end
 				end
 			end
-			offset=offset+4
+			offset=offset+(font.getWidth(char)+1)
 		end
 	end
 end
@@ -96,13 +119,14 @@ gfx.printAlpha=function(v, x, y, rgba)
 		v=tostring(v)
 		local offset=0
 		for i=1, #v do
-			local char=string.byte(v, i)-0x1F
+			local char=tochar(v, i)-0x1F
 			local curr=font.fonts[font.current]
-			for yy=1, 5 do
-				for j=1, 3 do
-					if curr[yy] then
-						if curr[yy][char] then
-							if curr[yy][char][j]==1 then
+			for yy=1, #curr do
+				local curryy=curr[yy]
+				for j=1, #curryy do
+					if curryy then
+						if curryy[char] then
+							if curryy[char][j]==1 then
 								local xloc=x+j+offset
 								local yloc=y+(yy-1)
 								rOut = ((rgba[1] * rgba[4]) / 15) + ((gfx.getPixel( xloc, yloc )[1] * 15 * ( 15 - rgba[4] )) / 225)
@@ -115,7 +139,7 @@ gfx.printAlpha=function(v, x, y, rgba)
 					end
 				end
 			end
-			offset=offset+4
+			offset=offset+(font.getWidth(char)+1)
 		end
 	end
 end

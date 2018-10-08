@@ -5,6 +5,7 @@ local CREDITS = {
 local socket = require("socket")
 local floor=math.floor
 local ceil=math.ceil
+local twofivefive = 1/255
 function round(num) 
 	if num >= 0 then return floor(num+.5) 
 	else return ceil(num-.5) end
@@ -12,7 +13,7 @@ end
 local win = {
 	[ "width" ] = 320;
 	[ "height" ] = 240;
-	[ "scale" ] = 4;
+	[ "scale" ] = 3;
 }
 local MAKE_TRUE_SIZE = 4
 local MAX_RAM = 16384
@@ -27,6 +28,10 @@ local gfxSize = (win.width*win.height)-1
 local currKeyPressed = ""
 local currKeyReleased = ""
 local progs = {}
+local wins = win.scale
+local winss = 1/win.scale
+local mousegetX = love.mouse.getX
+local mousegetY = love.mouse.getY
 G_ENV = {
 	[ "gfx" ] = {};
 	[ "network" ] = {
@@ -144,10 +149,16 @@ G_ENV = {
 		[ "setScreenMode" ] = function( mode )
 			if mode == "low" then
 				win.scale = 2
+				wins = 2
+				winss = 1/2
 			elseif mode == "high" then
 				win.scale = 4
+				wins = 4
+				winss = 4/2
 			else
 				win.scale = 3
+				wins = 3
+				winss = 3/2
 			end
 			love.window.setMode(0, 0)
 			screen_xoff = love.graphics.getWidth()/2-(win.width*win.scale/2)
@@ -178,7 +189,7 @@ G_ENV = {
 		[ "keyboardTyped" ] = "";
 		[ "isKeyDown" ] = love.keyboard.isDown;
 		[ "getMousePos" ] = function()
-			return math.floor(love.mouse.getX() / win.scale), math.floor(love.mouse.getY() / win.scale)
+			return floor(mousegetX() * winss), floor(mousegetY() * winss)
 		end;
 		[ "mouseIsDown" ] = love.mouse.isDown;
 		[ "keyPressed" ] = function( key )
@@ -218,18 +229,20 @@ G_ENV.gfx.clear = function( rgb )
 	end
 end
 math.round=round
+local winw = win.width
+local winww = 1/win.width
 G_ENV.gfx.putPixel = function( x, y, rgb )
 	x=round(x)
 	y=round(y)
-	if x >= 0 and x < win.width and y>=0 and y<win.height then
-		gfx[ y*win.width + x ] = rgb or { 0xF, 0xF, 0xF }
+	if x >= 0 and x < winw and y>=0 and y<win.height then
+		gfx[ y*winw + x ] = rgb or { 0xF, 0xF, 0xF }
 	end
 end
 G_ENV.gfx.getPixel = function( x, y )
 	x=round(x)
 	y=round(y)
-	if x >= 0 and x < win.width and y>=0 and y<win.height then
-		local index = y*win.width + x
+	if x >= 0 and x < winw and y>=0 and y<win.height then
+		local index = y*winw + x
 		return { gfx[ index ][ 1 ], gfx[ index ][ 2 ], gfx[ index ][ 3 ] }
 	end
 end
@@ -247,9 +260,8 @@ function love.load()
 	} )
 	love.graphics.setPointSize( win.scale )
 	if( success ) then
-		local rgb = { 0x0, 0x0, 0x0 }
 		for i=0, gfxSize do
-			gfx[ i ] = rgb
+			gfx[ i ] = {0,0,0}
 		end
 		local ok, err = love.filesystem.load( "kernel/boot.lua" )
 		USED_RAM = USED_RAM + math.floor(love.filesystem.getInfo( "kernel/boot.lua" ).size/MAKE_TRUE_SIZE)
@@ -271,16 +283,23 @@ end
 
 local mydt = 0
 local counter = 0
+local genvu = G_ENV.update
 function love.update(dt)
-	mydt = mydt + dt
-	if G_ENV.update then
-		local ok, err = pcall(G_ENV.update, dt)
+	if genvu then
+		local ok, err = pcall(genvu, dt)
 		if not ok then error( err ) end
+		mydt = mydt + dt
+	else
+		genvu = G_ENV.update
 	end
 	if counter >= 60 then
 		CPU_SPEED = mydt
 		mydt = 0
 		counter = 0
+		if winw ~= win.width then
+			winw = win.width
+			winww = 1/win.width
+		end
 	end
 	counter = counter + 1
 end
@@ -292,9 +311,9 @@ function love.draw()
 	if screen_xoff and screen_yoff then
 		for i=0, gfxSize do
 			local curr = gfx[ i ]
-			if (curr[ 1 ] + curr[ 2 ] + curr[ 3 ]) > 0 then
-				setColor( (curr[ 1 ]*17)/255, (curr[ 2 ]*17)/255, (curr[ 3 ]*17)/255 )
-				point( screen_xoff+(i%win.width)*win.scale, screen_yoff+floor(i/win.width)*win.scale )
+			if curr[ 1 ] > 0 then
+				setColor( (curr[ 1 ]*17)*twofivefive, (curr[ 2 ]*17)*twofivefive, (curr[ 3 ]*17)*twofivefive )
+				point( screen_xoff+(i%winw)*wins, screen_yoff+floor(i*winww)*wins )
 			end
 		end
 	end
