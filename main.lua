@@ -10,6 +10,10 @@ function round( num )
 	if num >= 0 then return floor( num+.5 ) 
 	else return ceil( num-.5 ) end
 end
+local function map( n, start1, stop1, start2, stop2 )
+	return (n - start1) / (stop1 - start1) * (stop2 - start2) + start2
+end
+math.map = map
 local win = {
 	[ "width" ] = 320;
 	[ "height" ] = 240;
@@ -19,7 +23,7 @@ local blueCutoff = 0
 local blueAmount = 5
 local MAKE_TRUE_SIZE = 4
 local MAX_RAM = 16384
-local USED_RAM = 0 
+local USED_RAM = 0
 local MAX_STORAGE = 131072
 local USED_STORAGE = 0
 local CPU_SPEED = 1
