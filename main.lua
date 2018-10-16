@@ -6,9 +6,9 @@ local socket = require("socket")
 local floor=math.floor
 local ceil=math.ceil
 local twofivefive = 1/255
-function round(num) 
-	if num >= 0 then return floor(num+.5) 
-	else return ceil(num-.5) end
+function round( num )
+	if num >= 0 then return floor( num+.5 ) 
+	else return ceil( num-.5 ) end
 end
 local win = {
 	[ "width" ] = 320;
@@ -26,7 +26,8 @@ local CPU_SPEED = 1
 
 local LOADED_PRGS = {}
 local gfx = {}
-local gfxSize = (win.width*win.height)-1
+local gfa = {}
+local gfxSize = ( win.width * win.height )-1
 local currKeyPressed = ""
 local currKeyReleased = ""
 local progs = {}
@@ -52,7 +53,7 @@ G_ENV = {
 	};
 	[ "fs" ] = {
 		[ "mkdir" ] = function( path )
-			love.filesystem.mkdir( "root/"..path )
+			love.filesystem.createDirectory( "root/"..path )
 		end;
 		[ "exists" ] = function( path )
 			if love.filesystem.getInfo( "root/"..path ) == nil then
@@ -65,7 +66,7 @@ G_ENV = {
 			return love.filesystem.getInfo( "root/"..path )
 		end;
 		[ "list" ] = function( path )
-			return love.filesystem.enumerate( "root/"..path )
+			return love.filesystem.getDirectoryItems( "root/"..path )
 		end;
 		[ "open" ] = function( path, rt )
 			return love.filesystem.newFile( "root/"..path, rt )
@@ -73,8 +74,11 @@ G_ENV = {
 		[ "read" ] = function( path )
 			return love.filesystem.read( "root/"..path )
 		end;
-		[ "write" ] = function( path )
-			return love.filesystem.write( "root/"..path )
+		[ "write" ] = function( path, value )
+			return love.filesystem.write( "root/"..path, value )
+		end;
+		[ "delete" ] = function( path )
+			love.filesystem.remove( "root/"..path )
 		end;
 	};
 	[ "program" ] = {
@@ -189,7 +193,7 @@ G_ENV = {
 		[ "getStorageSize" ] = function()
 			return MAX_STORAGE
 		end;
-		[ "getStorageUsed" ] = function()
+		[ "getUsedStorage" ] = function()
 			return USED_STORAGE
 		end;
 		[ "getCPUSpeed" ] = function()
@@ -235,6 +239,7 @@ G_ENV.gfx.clear = function( rgb )
 	local rgb = rgb or { 0x0, 0x0, 0x0 }
 	for i=0, gfxSize do
 		gfx[ i ] = rgb
+		gfa[ i ] = rgb[1]+rgb[2]+rgb[3]
 	end
 end
 math.round=round
@@ -243,8 +248,11 @@ local winww = 1/win.width
 G_ENV.gfx.putPixel = function( x, y, rgb )
 	x=round(x)
 	y=round(y)
+	rgb = rgb or { 0xF, 0xF, 0xF }
 	if x >= 0 and x < winw and y>=0 and y<win.height then
-		gfx[ y*winw + x ] = rgb or { 0xF, 0xF, 0xF }
+		local loc = y*winw + x
+		gfx[ loc ] = rgb
+		gfa[ loc ] = rgb[1]+rgb[2]+rgb[3]
 	end
 end
 G_ENV.gfx.getPixel = function( x, y )
@@ -271,6 +279,7 @@ function love.load()
 	if( success ) then
 		for i=0, gfxSize do
 			gfx[ i ] = {0,0,0}
+			gfa[ i ] = gfx[ i ][ 1 ] + gfx[ i ][ 2 ] + gfx[ i ][ 3 ]
 		end
 		local ok, err = love.filesystem.load( "kernel/boot.lua" )
 		USED_RAM = USED_RAM + math.floor(love.filesystem.getInfo( "kernel/boot.lua" ).size/MAKE_TRUE_SIZE)
@@ -287,15 +296,31 @@ function love.load()
 			if not ok then error( err ) end
 		end
 		love.mouse.setVisible( false )
+		if love.filesystem.getInfo( "root" ) == nil then
+			love.filesystem.createDirectory( 'root' )
+		end
 	end
 end
 
 local mydt = 0
 local counter = 0
 local genvu = G_ENV.update
-function love.update(dt)
+local function determineSize( dir )
+	local size = 0
+	local files = love.filesystem.getDirectoryItems( dir )
+	for i=1, #files do
+		local info = love.filesystem.getInfo( dir..files[ i ] )
+		if info.type == "directory" then
+			size = size + determineSize( dir..files[ i ].."/" )
+		elseif info.type == "file" then
+			size = size + info.size
+		end
+	end
+	return floor( size*0.25 )
+end
+function love.update( dt )
 	if genvu then
-		local ok, err = pcall(genvu, dt)
+		local ok, err = pcall( genvu, dt )
 		if not ok then error( err ) end
 		mydt = mydt + dt
 	else
@@ -305,6 +330,7 @@ function love.update(dt)
 		CPU_SPEED = mydt
 		mydt = 0
 		counter = 0
+		USED_STORAGE = determineSize( 'root/' )
 		if winw ~= win.width then
 			winw = win.width
 			winww = 1/win.width
@@ -319,8 +345,8 @@ local floor = math.floor
 function love.draw()
 	if screen_xoff and screen_yoff then
 		for i=0, gfxSize do
-			local curr = gfx[ i ]
-			if curr[ 1 ] > 0 then
+			if gfa[ i ] > 0 then
+				local curr = gfx[ i ]
 				local b = curr[ 3 ]-blueCutoff
 				if b < 0 then b = 0 end
 				setColor( (curr[ 1 ]*17)*twofivefive, (curr[ 2 ]*17)*twofivefive, (b*17)*twofivefive )

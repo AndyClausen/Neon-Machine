@@ -59,7 +59,7 @@ font.load=function(path, name)
 		if not ok then error( err ) end
 		font.fonts[name]=ok
 	else
-		fs.wirte( 'default.fnt', defaultFont )
+		fs.write( 'default.fnt', defaultFont )
 		local ok, err=loadstring("return "..fs.read('default.fnt'))()
 		if not ok then error( err ) end
 		font.fonts[name]=ok
