@@ -10,6 +10,7 @@ function round( num )
 	if num >= 0 then return floor( num+.5 ) 
 	else return ceil( num-.5 ) end
 end
+local canvas
 local function map( n, start1, stop1, start2, stop2 )
 	return (n - start1) / (stop1 - start1) * (stop2 - start2) + start2
 end
@@ -34,6 +35,8 @@ local gfa = {}
 local gfxSize = ( win.width * win.height )-1
 local currKeyPressed = ""
 local currKeyReleased = ""
+local currMousePressed = 0
+local currMouseReleased = 0
 local progs = {}
 local wins = win.scale
 local winss = 1/win.scale
@@ -209,11 +212,28 @@ G_ENV = {
 			return floor(mousegetX() * winss), floor(mousegetY() * winss)
 		end;
 		[ "mouseIsDown" ] = love.mouse.isDown;
+		[ "mousePressed" ] = function( key )
+			if currMousePressed == key then
+				currMousePressed = 0
+				return true
+			end
+			currMousePressed = 0
+			return false
+		end;
+		[ "mouseReleased" ] = function( key )
+			if currMouseReleased == key then
+				currMouseReleased = 0
+				return true
+			end
+			currMouseReleased = 0
+			return false
+		end;
 		[ "keyPressed" ] = function( key )
 			if currKeyPressed == key then
 				currKeyPressed = ""
 				return true
 			end
+			currKeyPressed = ""
 			return false
 		end;
 		[ "keyReleased" ] = function( key )
@@ -221,6 +241,7 @@ G_ENV = {
 				currKeyReleased = ""
 				return true
 			end
+			currKeyReleased = ""
 			return false
 		end;
 	}
@@ -239,12 +260,25 @@ function love.keyreleased(key)
 	currKeyReleased = key
 end
 
+function love.mousepressed(_,_,key)
+	currMousePressed = key
+	currMouseReleased = 0
+end
+
+function love.mousereleased(_,_,key)
+	currMouseReleased = key
+	currMousePressed = -1
+end
+
+local setColor = love.graphics.setColor
+local point = love.graphics.points
+local clear = love.graphics.clear
 G_ENV.gfx.clear = function( rgb )
 	local rgb = rgb or { 0x0, 0x0, 0x0 }
 	for i=0, gfxSize do
 		gfx[ i ] = rgb
-		gfa[ i ] = rgb[1]+rgb[2]+rgb[3]
 	end
+	clear( (rgb[1]*17)*twofivefive,(rgb[2]*17)*twofivefive,(rgb[3]*17)*twofivefive )
 end
 math.round=round
 local winw = win.width
@@ -252,19 +286,19 @@ local winww = 1/win.width
 G_ENV.gfx.putPixel = function( x, y, rgb )
 	x=round(x)
 	y=round(y)
-	rgb = rgb or { 0xF, 0xF, 0xF }
 	if x >= 0 and x < winw and y>=0 and y<win.height then
-		local loc = y*winw + x
-		gfx[ loc ] = rgb
-		gfa[ loc ] = rgb[1]+rgb[2]+rgb[3]
+		rgb = rgb or { 0xF, 0xF, 0xF }
+		gfx[ y*winw+x ] = rgb
+		setColor( (rgb[1]*17)*twofivefive, (rgb[2]*17)*twofivefive, (rgb[3]*17)*twofivefive )
+		point( x, y )
 	end
 end
+local one17=1/17
 G_ENV.gfx.getPixel = function( x, y )
 	x=round(x)
 	y=round(y)
 	if x >= 0 and x < winw and y>=0 and y<win.height then
-		local index = y*winw + x
-		return { gfx[ index ][ 1 ], gfx[ index ][ 2 ], gfx[ index ][ 3 ] }
+		return gfx[ y*winw+x ]
 	end
 end
 
@@ -279,11 +313,17 @@ function love.load()
 		[ "borderless" ] = true;
 		[ "fullscreen" ] = true;
 	} )
-	love.graphics.setPointSize( win.scale )
+	canvas = love.graphics.newCanvas( win.width, win.height, {
+		[ "dpiscale" ] = love.graphics.getDPIScale();
+		[ "format" ] = "hdr";
+	} )
+	canvasimageData = canvas:newImageData()
+	canvas:setFilter( "nearest", "nearest" )
+	love.graphics.setCanvas( canvas )
+	--love.graphics.setPointSize( win.scale )
 	if( success ) then
 		for i=0, gfxSize do
 			gfx[ i ] = {0,0,0}
-			gfa[ i ] = gfx[ i ][ 1 ] + gfx[ i ][ 2 ] + gfx[ i ][ 3 ]
 		end
 		local ok, err = love.filesystem.load( "kernel/boot.lua" )
 		USED_RAM = USED_RAM + math.floor(love.filesystem.getInfo( "kernel/boot.lua" ).size/MAKE_TRUE_SIZE)
@@ -304,6 +344,7 @@ function love.load()
 			love.filesystem.createDirectory( 'root' )
 		end
 	end
+	love.graphics.setCanvas()
 end
 
 local mydt = 0
@@ -324,7 +365,9 @@ local function determineSize( dir )
 end
 function love.update( dt )
 	if genvu then
+		love.graphics.setCanvas( canvas )
 		local ok, err = pcall( genvu, dt )
+		love.graphics.setCanvas()
 		if not ok then error( err ) end
 		mydt = mydt + dt
 	else
@@ -343,19 +386,18 @@ function love.update( dt )
 	counter = counter + 1
 end
 
-local setColor = love.graphics.setColor
-local point = love.graphics.points
 local floor = math.floor
 function love.draw()
 	if screen_xoff and screen_yoff then
-		for i=0, gfxSize do
-			if gfa[ i ] > 0 then
-				local curr = gfx[ i ]
-				local b = curr[ 3 ]-blueCutoff
-				if b < 0 then b = 0 end
-				setColor( (curr[ 1 ]*17)*twofivefive, (curr[ 2 ]*17)*twofivefive, (b*17)*twofivefive )
-				point( screen_xoff+(i%winw)*wins, screen_yoff+floor(i*winww)*wins )
-			end
-		end
+		--for i=0, gfxSize do
+			--if gfa[ i ] > 0 then
+				--local curr = gfx[ i ]
+				--local b = curr[ 3 ]-blueCutoff
+				--if b < 0 then b = 0 end
+				--setColor( (curr[ 1 ]*17)*twofivefive, (curr[ 2 ]*17)*twofivefive, (b*17)*twofivefive )
+				--point( screen_xoff+(i%winw)*wins, screen_yoff+floor(i*winww)*wins )
+			--end
+		--end
+		love.graphics.draw( canvas, screen_xoff+win.scale, screen_yoff+win.scale, 0, win.scale )
 	end
 end
