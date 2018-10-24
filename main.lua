@@ -16,13 +16,13 @@ local function map( n, start1, stop1, start2, stop2 )
 end
 math.map = map
 local win = {
-	[ "width" ] = 320;
-	[ "height" ] = 240;
-	[ "scale" ] = 3;
+	[ "width" ] = 200;
+	[ "height" ] = 152;
+	[ "scale" ] = 5;
 }
 local blueCutoff = 0
 local blueAmount = 5
-local MAKE_TRUE_SIZE = 4
+local MAKE_TRUE_SIZE = 8
 local MAX_RAM = 16384
 local USED_RAM = 0
 local MAX_STORAGE = 131072
@@ -31,7 +31,6 @@ local CPU_SPEED = 1
 
 local LOADED_PRGS = {}
 local gfx = {}
-local gfa = {}
 local gfxSize = ( win.width * win.height )-1
 local currKeyPressed = ""
 local currKeyReleased = ""
@@ -42,6 +41,73 @@ local wins = win.scale
 local winss = 1/win.scale
 local mousegetX = love.mouse.getX
 local mousegetY = love.mouse.getY
+local lfgi = love.filesystem.getInfo
+local lfgdi = love.filesystem.getDirectoryItems
+local function determineSize( dir )
+	local size = 0
+	local files = lfgdi( dir )
+	for i=1, #files do
+		local info = lfgi( dir..files[ i ] )
+		if info then
+			if info.type == "directory" then
+				size = size + determineSize( dir..files[ i ].."/" )
+			elseif info.type == "file" then
+				size = size + round( info.size/MAKE_TRUE_SIZE )
+			end
+		end
+	end
+	return size
+end
+local function reset()
+	canvas = love.graphics.newCanvas( win.width, win.height, {
+		[ "dpiscale" ] = love.graphics.getDPIScale();
+		--[ "format" ] = "hdr";
+	} )
+	--canvasimageData = canvas:newImageData()
+	canvas:setFilter( "nearest", "nearest" )
+	love.graphics.setCanvas( canvas )
+	for i=0, gfxSize do
+		gfx[ i ] = {0,0,0}
+	end
+	local ok, err = love.filesystem.load( "kernel/boot.lua" )
+	USED_RAM = USED_RAM + math.floor(love.filesystem.getInfo( "kernel/boot.lua" ).size/MAKE_TRUE_SIZE)
+	if not ok then error( err ) else
+		setmetatable( G_ENV, {} )
+		for k, v in pairs( _G ) do
+			if k ~= "love" and k ~= "G_ENV" then
+				G_ENV[ k ] = v
+			end
+		end
+		G_ENV.__NAME = "boot"
+		G_ENV.gfx.width = win.width
+		G_ENV.gfx.height = win.height
+		setfenv( ok, G_ENV )
+		ok, err = pcall( ok )
+		if not ok then error( err ) end
+	end
+	love.mouse.setVisible( false )
+	if love.filesystem.getInfo( "root" ) == nil then
+		love.filesystem.createDirectory( 'root' )
+	end
+	love.graphics.setCanvas()
+end
+local function sliceDirs( input )
+	local cm = {}
+	local word = ""
+	local j = 0
+	for i=1, #input do
+		local c = input:sub( i, i )
+		if c == "/" then
+			cm[ #cm + 1 ] = word
+			word = ""
+			j = i+1
+		else
+			word = word .. c
+		end
+	end
+	cm[ #cm + 1 ] = input:sub( j )
+	return cm
+end
 G_ENV = {
 	[ "gfx" ] = {};
 	[ "network" ] = {
@@ -59,32 +125,139 @@ G_ENV = {
 		end;
 	};
 	[ "fs" ] = {
+		[ "getName" ] = function( path )
+			local lastIndex = 1
+			for i=1, #path do
+				local c=path:sub( i, i )
+				if c == "/" then
+					lastIndex = i+1
+				end
+			end
+			return path:sub( lastIndex, #path )
+		end;
 		[ "mkdir" ] = function( path )
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
 			love.filesystem.createDirectory( "root/"..path )
 		end;
 		[ "exists" ] = function( path )
-			if love.filesystem.getInfo( "root/"..path ) == nil then
+			local opath = "root/"
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
+			local original = sliceDirs( path )[ 1 ]
+			if original == "rom" then
+				opath = "kernel/"
+			end
+			if love.filesystem.getInfo( opath..path ) == nil then
 				return false
 			else
 				return true
 			end
 		end;
 		[ "getInfo" ] = function( path )
-			return love.filesystem.getInfo( "root/"..path )
+			local opath = "root/"
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
+			local original = sliceDirs( path )[ 1 ]
+			if original == "rom" then
+				opath = "kernel/"
+			end
+			local info = love.filesystem.getInfo( opath..path )
+			if info then
+				if info.type == "directory" then
+					info.size = determineSize( opath..path.."/" )
+				else
+					if info.size then
+						info.size = round( info.size / MAKE_TRUE_SIZE )
+					end
+				end
+			end
+			return info
 		end;
 		[ "list" ] = function( path )
-			return love.filesystem.getDirectoryItems( "root/"..path )
+			local opath = "root/"
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
+			local original = sliceDirs( path )[ 1 ]
+			if original == "rom" then
+				opath = "kernel/"
+			end
+			local files = love.filesystem.getDirectoryItems( opath..path )
+			if path == "" then
+				files[ #files + 1 ] = "rom"
+			end
+			return files
 		end;
 		[ "open" ] = function( path, rt )
-			return love.filesystem.newFile( "root/"..path, rt )
+			local opath = "root/"
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
+			if rt == 'r' then
+				local original = sliceDirs( path )[ 1 ]
+				if original == "rom" then
+					opath = "kernel/"
+				end
+			end
+			return love.filesystem.newFile( opath..path, rt )
 		end;
 		[ "read" ] = function( path )
-			return love.filesystem.read( "root/"..path )
+			local opath = "root/"
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
+			local original = sliceDirs( path )[ 1 ]
+			if original == "rom" then
+				opath = "kernel/"
+			end
+			return love.filesystem.read( opath..path )
 		end;
 		[ "write" ] = function( path, value )
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
 			return love.filesystem.write( "root/"..path, value )
 		end;
 		[ "delete" ] = function( path )
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
 			love.filesystem.remove( "root/"..path )
 		end;
 	};
@@ -143,10 +316,21 @@ G_ENV = {
 					LOADED_PRGS[ path ].sandbox[ k ] = v
 				end
 				setfenv( LOADED_PRGS[ path ].func, LOADED_PRGS[ path ].sandbox )
+				LOADED_PRGS[ path ].sandbox.__NAME = path
 				local ok, err = pcall( LOADED_PRGS[ path ].func, ... )
 				return ok, err
 			else
 				return false, "Program not loaded!"
+			end
+		end;
+		[ "getSize" ] = function( path )
+			if LOADED_PRGS[ path ] then
+				return LOADED_PRGS[ path ].size
+			end
+		end;
+		[ "getLoadedBy" ] = function( path )
+			if LOADED_PRGS[ path ] then
+				return LOADED_PRGS[ path ].loadedBy
 			end
 		end;
 		[ "update" ] = function( path, dt )
@@ -168,17 +352,17 @@ G_ENV = {
 		end;
 		[ "setScreenMode" ] = function( mode )
 			if mode == "low" then
-				win.scale = 2
-				wins = 2
-				winss = 1/2
-			elseif mode == "high" then
-				win.scale = 4
-				wins = 4
-				winss = 4/2
-			else
 				win.scale = 3
 				wins = 3
-				winss = 3/2
+				winss = 1/3
+			elseif mode == "high" then
+				win.scale = 5
+				wins = 5
+				winss = 1/5
+			else
+				win.scale = 4
+				wins = 4
+				winss = 1/4
 			end
 			love.window.setMode(0, 0)
 			screen_xoff = love.graphics.getWidth()/2-(win.width*win.scale/2)
@@ -206,7 +390,7 @@ G_ENV = {
 		[ "getCPUSpeed" ] = function()
 			return CPU_SPEED
 		end;
-		[ "keyboardTyped" ] = "";
+		[ "textInput" ] = "";
 		[ "isKeyDown" ] = love.keyboard.isDown;
 		[ "getMousePos" ] = function()
 			return floor(mousegetX() * winss), floor(mousegetY() * winss)
@@ -217,15 +401,14 @@ G_ENV = {
 				currMousePressed = 0
 				return true
 			end
-			currMousePressed = 0
 			return false
 		end;
+		[ "reset" ] = reset;
 		[ "mouseReleased" ] = function( key )
 			if currMouseReleased == key then
 				currMouseReleased = 0
 				return true
 			end
-			currMouseReleased = 0
 			return false
 		end;
 		[ "keyPressed" ] = function( key )
@@ -233,7 +416,6 @@ G_ENV = {
 				currKeyPressed = ""
 				return true
 			end
-			currKeyPressed = ""
 			return false
 		end;
 		[ "keyReleased" ] = function( key )
@@ -241,14 +423,13 @@ G_ENV = {
 				currKeyReleased = ""
 				return true
 			end
-			currKeyReleased = ""
 			return false
 		end;
 	}
 }
 
 function love.textinput( t )
-	G_ENV.sys.keyboardTyped = G_ENV.sys.keyboardTyped .. t
+	G_ENV.sys.textInput = G_ENV.sys.textInput .. t
 end
 
 function love.keypressed(key)
@@ -267,30 +448,67 @@ end
 
 function love.mousereleased(_,_,key)
 	currMouseReleased = key
-	currMousePressed = -1
+	currMousePressed = 0
 end
 
 local setColor = love.graphics.setColor
 local point = love.graphics.points
 local clear = love.graphics.clear
+local ccr = 0
+local ccg = 0
+local ccb = 0
+local csr = 0
+local csg = 0
+local csb = 0
 G_ENV.gfx.clear = function( rgb )
 	local rgb = rgb or { 0x0, 0x0, 0x0 }
 	for i=0, gfxSize do
 		gfx[ i ] = rgb
 	end
-	clear( (rgb[1]*17)*twofivefive,(rgb[2]*17)*twofivefive,(rgb[3]*17)*twofivefive )
+	if csr ~= rgb[1] then
+		csr = rgb[1]
+		ccr = (rgb[1]*17)*twofivefive
+	end
+	if csg ~= rgb[2] then
+		csg = rgb[2]
+		ccg = (rgb[2]*17)*twofivefive
+	end
+	if csb ~= rgb[3] then
+		csb = rgb[3]
+		ccb = (rgb[3]*17)*twofivefive
+	end
+	clear( ccr, ccg, ccb )
 end
 math.round=round
 local winw = win.width
 local winww = 1/win.width
+local winsh = wins/2
+local pcr = 0
+local pcg = 0
+local pcb = 0
+local ppr = 0
+local ppg = 0
+local ppb = 0
 G_ENV.gfx.putPixel = function( x, y, rgb )
 	x=round(x)
 	y=round(y)
 	if x >= 0 and x < winw and y>=0 and y<win.height then
 		rgb = rgb or { 0xF, 0xF, 0xF }
+		if ppr ~= rgb[1] then
+			ppr = rgb[1]
+			pcr = (rgb[1]*17)*twofivefive
+		end
+		if ppg ~= rgb[2] then
+			ppg = rgb[2]
+			pcg = (rgb[2]*17)*twofivefive
+		end
+		if ppb ~= rgb[3] then
+			ppb = rgb[3]
+			pcb = (rgb[3]*17)*twofivefive
+		end
 		gfx[ y*winw+x ] = rgb
-		setColor( (rgb[1]*17)*twofivefive, (rgb[2]*17)*twofivefive, (rgb[3]*17)*twofivefive )
-		point( x, y )
+		setColor( pcr, pcg, pcb )
+		point( 1+x, 1+y )
 	end
 end
 local one17=1/17
@@ -313,36 +531,9 @@ function love.load()
 		[ "borderless" ] = true;
 		[ "fullscreen" ] = true;
 	} )
-	canvas = love.graphics.newCanvas( win.width, win.height, {
-		[ "dpiscale" ] = love.graphics.getDPIScale();
-		[ "format" ] = "hdr";
-	} )
-	canvasimageData = canvas:newImageData()
-	canvas:setFilter( "nearest", "nearest" )
-	love.graphics.setCanvas( canvas )
 	--love.graphics.setPointSize( win.scale )
 	if( success ) then
-		for i=0, gfxSize do
-			gfx[ i ] = {0,0,0}
-		end
-		local ok, err = love.filesystem.load( "kernel/boot.lua" )
-		USED_RAM = USED_RAM + math.floor(love.filesystem.getInfo( "kernel/boot.lua" ).size/MAKE_TRUE_SIZE)
-		if not ok then error( err ) else
-			setmetatable( G_ENV, {} )
-			for k, v in pairs( _G ) do
-				if k ~= "love" and k ~= "G_ENV" then
-					G_ENV[ k ] = v
-				end
-			end
-			G_ENV.__NAME = "boot"
-			setfenv( ok, G_ENV )
-			ok, err = pcall( ok )
-			if not ok then error( err ) end
-		end
-		love.mouse.setVisible( false )
-		if love.filesystem.getInfo( "root" ) == nil then
-			love.filesystem.createDirectory( 'root' )
-		end
+		reset()
 	end
 	love.graphics.setCanvas()
 end
@@ -350,26 +541,18 @@ end
 local mydt = 0
 local counter = 0
 local genvu = G_ENV.update
-local function determineSize( dir )
-	local size = 0
-	local files = love.filesystem.getDirectoryItems( dir )
-	for i=1, #files do
-		local info = love.filesystem.getInfo( dir..files[ i ] )
-		if info.type == "directory" then
-			size = size + determineSize( dir..files[ i ].."/" )
-		elseif info.type == "file" then
-			size = size + info.size
-		end
-	end
-	return floor( size*0.25 )
-end
+local setCanvas = love.graphics.setCanvas
 function love.update( dt )
 	if genvu then
-		love.graphics.setCanvas( canvas )
+		setCanvas( canvas )
 		local ok, err = pcall( genvu, dt )
-		love.graphics.setCanvas()
 		if not ok then error( err ) end
+		setCanvas()
 		mydt = mydt + dt
+		currKeyReleased = ""
+		currKeyPressed = ""
+		currMouseReleased = 0
+		currMousePressed = 0
 	else
 		genvu = G_ENV.update
 	end
@@ -387,6 +570,7 @@ function love.update( dt )
 end
 
 local floor = math.floor
+local draw = love.graphics.draw
 function love.draw()
 	if screen_xoff and screen_yoff then
 		--for i=0, gfxSize do
@@ -398,6 +582,7 @@ function love.draw()
 				--point( screen_xoff+(i%winw)*wins, screen_yoff+floor(i*winww)*wins )
 			--end
 		--end
-		love.graphics.draw( canvas, screen_xoff+win.scale, screen_yoff+win.scale, 0, win.scale )
+		setColor( 1, 1, 1 )
+		draw( canvas, screen_xoff, screen_yoff, 0, wins, wins )
 	end
 end

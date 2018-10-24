@@ -1,0 +1,26 @@
+local path = ({ ... })[ 1 ] or ""
+if fs.exists( shell.getCurrentDir()..path ) then
+	local list = fs.list( shell.getCurrentDir()..path )
+	setColor( 14, 10, 2 )
+	for i=1, #list do
+		local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
+		if file then
+			if file.type == "directory" then
+				print( list[ i ].." ("..tonumber(file.size).." bytes)" )
+			end
+		end
+	end
+	setColor( 4, 14, 2 )
+	for i=1, #list do
+		local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
+		if file then
+			if file.type == "file" then
+				print( list[ i ].." ("..tonumber(file.size).." bytes)" )
+			end
+		end
+	end
+else
+	setColor( 14, 2, 2 )
+	print( "Unknown path: "..path )
+end
+setColor( 14, 14, 14 )

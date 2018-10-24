@@ -1,0 +1,27 @@
+local dir = ({ ... })[ 1 ]
+
+local function getLastDir( input )
+	local cm = shell.parsePath( input )
+	local cdir = ""
+	for i=1, #cm-1 do
+		cdir = cdir .. cm[ i ] .. "/"
+	end
+	return cdir
+end
+
+local function interpretDirs( input )
+	local dirs = shell.parsePath( input )
+	for i=1, #dirs do
+		if dirs[ i ] == ".." then
+			shell.setCurrentDir( getLastDir( shell.getCurrentDir() ) )
+		else
+			if fs.exists( shell.getCurrentDir()..dirs[ i ].."/" ) then
+				shell.setCurrentDir( shell.getCurrentDir()..dirs[ i ].."/" )
+			else
+				error( "Path: '"..shell.getCurrentDir()..dirs[ i ].."/".."', does not exist!" )
+			end
+		end
+	end
+end
+
+interpretDirs( dir )
