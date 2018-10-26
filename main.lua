@@ -17,7 +17,7 @@ end
 math.map = map
 local win = {
 	[ "width" ] = 200;
-	[ "height" ] = 152;
+	[ "height" ] = 150;
 	[ "scale" ] = 5;
 }
 local blueCutoff = 0
@@ -263,7 +263,19 @@ G_ENV = {
 	};
 	[ "program" ] = {
 		[ "load" ] = function( path, loadedBy )
-			local tbl, err = love.filesystem.getInfo( "root/"..path )
+			local opath = "root/"
+			if path:sub( 1, 1 ) == "/" then
+				if #path > 2 then
+					path = path:sub( 2 )
+				else
+					path = ""
+				end
+			end
+			local original = sliceDirs( path )[ 1 ]
+			if original == "rom" then
+				opath = "kernel/"
+			end
+			local tbl, err = love.filesystem.getInfo( opath..path )
 			local size = 0
 			if tbl then
 				if tbl.size >= MAKE_TRUE_SIZE then
@@ -279,7 +291,7 @@ G_ENV = {
 			else
 				LOADED_PRGS[ path ] = {
 					[ "size" ] = size;
-					[ "func" ] = love.filesystem.load( "root/"..path );
+					[ "func" ] = love.filesystem.load( opath..path );
 					[ "loadedBy" ] = loadedBy;
 					[ "sandbox" ] = {};
 				}

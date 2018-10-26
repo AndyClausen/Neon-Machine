@@ -100,6 +100,22 @@ font.getHeight=function()
 		return #curr
 	end
 end
+gfx.scrollUp=function( times )
+	local buff = {}
+	for y=times, gfx.height-1 do
+		local ybuff = {}
+		for x=0, gfx.width-1 do
+			ybuff[ x ] = gfx.getPixel( x, y )
+		end
+		buff[ y-times ] = ybuff
+	end
+	gfx.clear()
+	for y=0, (gfx.height-1)-times do
+		for x=0, gfx.width-1 do
+			gfx.putPixel( x, y, buff[ y ][ x ] )
+		end
+	end
+end
 gfx.print=function(v, x, y, c)
 	if font.current then
 		x = x - 1
@@ -179,17 +195,18 @@ print("Ram Used: "..sys.getRamUsed())
 print("Ram Free: "..(sys.getRamSize()-sys.getRamUsed()))
 
 local prgStarted = false
+local pathas = "startup"
 local function startStartup()
+	print()
+	print("On main startup:")
+	print("Ram Used: "..sys.getRamUsed())
+	print("Ram Free: "..(sys.getRamSize()-sys.getRamUsed()))
+	panic("Starting up...")
 	if fs.exists("startup") then
-		print()
-		print("On main startup:")
-		panic("Loading main...")
+		panic("Loading user startup...")
 		program.load("startup",__NAME)
 		program.setfenv( "startup", _G )
 		good("Loaded!")
-		print("Ram Used: "..sys.getRamUsed())
-		print("Ram Free: "..(sys.getRamSize()-sys.getRamUsed()))
-		panic("Starting up...")
 		local ok, err = program.start("startup")
 		if not ok then
 			panic("Failed.")
@@ -206,13 +223,35 @@ local function startStartup()
 			print("Ram Used: "..sys.getRamUsed())
 			print("Ram Free: "..(sys.getRamSize()-sys.getRamUsed()))
 		end
+	else
+		pathas = "rom/startup"
+		panic("Loading shell...")
+		program.load("rom/startup",__NAME)
+		program.setfenv( "rom/startup", _G )
+		good("Loaded!")
+		local ok, err = program.start("rom/startup")
+		if not ok then
+			panic("Failed.")
+			panic(err)
+			print()
+			print("Clearing RAM...")
+			program.unload("rom/startup")
+			print("Ram Used: "..sys.getRamUsed())
+			print("Ram Free: "..(sys.getRamSize()-sys.getRamUsed()))
+			prgStarted = false
+		else
+			prgStarted = true
+			good("Done.")
+			print("Ram Used: "..sys.getRamUsed())
+			print("Ram Free: "..(sys.getRamSize()-sys.getRamUsed()))
+		end
 	end
 end
 
 startStartup()
 function update(dt)
 	if prgStarted == true then
-		local ok, err = pcall(program.update, "startup", dt)
+		local ok, err = pcall(program.update, pathas, dt)
 		if not ok then
 			panic("RUNTIME ERROR:")
 			panic(tostring(err))

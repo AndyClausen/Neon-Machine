@@ -1,0 +1,1 @@
+gfx.drawImage( gfx.loadImage( "rom/demoimage.img" ), 0, 0 )

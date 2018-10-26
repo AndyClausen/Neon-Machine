@@ -1,0 +1,238 @@
+local currDir = ""
+shell = {
+	[ "setCurrentDir" ] = function( dir ) currDir = dir end;
+	[ "getCurrentDir" ] = function() return currDir end;
+}
+local currColor = { 14, 14, 14 }
+function setColor( r, g, b )
+	currColor = { r, g, b }
+end
+local cursorX = 1
+local cursorY = 1
+function print( ... )
+	if cursorY >= gfx.height then
+		cursorY = cursorY - 6
+		gfx.scrollUp( 6 )
+	end
+	gfx.print( sys.textInput .. table.concat( { ... } ), 1, cursorY, currColor )
+	cursorY = cursorY + 6
+end
+local commands = {
+	[ "clear" ] = function()
+		gfx.clear()
+		cursorY = 1
+	end;
+	[ "shutdown" ] = os.exit;
+	[ "reboot" ] = sys.reset;
+}
+
+local function parseCommands( input )
+	input = input .. " "
+	local cm = {}
+	local word = ""
+	for i=1, #input do
+		local c = input:sub( i, i )
+		if c == " " then
+			cm[ #cm + 1 ] = word
+			word = ""
+		else
+			word = word .. c
+		end
+	end
+	return cm
+end
+
+gfx.loadImage = function( path )
+	local ok, err = pcall(loadstring("return "..fs.read(path)))
+	if not ok then error(err,0) end
+	return err
+end
+gfx.drawImage = function( spr, x, y )
+	for yy=1, spr.height do
+		for xx=1, spr.width do
+			local c=spr[yy][xx] or {0,0,0}
+			if( c[1] > -1 ) then
+				gfx.putPixel(x+(xx-1), y+(yy-1), c)
+			end
+		end
+	end
+end
+
+local function shellParsePath( input )
+	local cm = {}
+	local word = ""
+	local j = 0
+	for i=1, #input do
+		local c = input:sub( i, i )
+		if c == "/" then
+			cm[ #cm + 1 ] = word
+			word = ""
+		else
+			word = word .. c
+		end
+	end
+	if #word > 0 then
+		cm[ #cm + 1 ] = word
+
+	end
+	return cm
+end
+shell.parsePath = shellParsePath
+
+local mouse = gfx.loadImage( "img/mouse.img" )
+
+local sec = 0
+local col = 15
+local updateCursor = false
+local updateCursorCol = 0
+local function drawCursor()
+	local num = cursorX
+	local s = os.date("%S")
+	if s ~= sec or updateCursor then
+		sec = s
+		if updateCursor == true then
+			col = 15
+		else
+			if col == 15 then
+				col = 0
+			else
+				col = 15
+			end
+		end
+	end
+	gfx.drawLine( num, cursorY+5, num+2, cursorY+5, { col, col, col } )
+end
+
+print( "ShellOS(SOS) 0.1" )
+print( "Made by: LeDark Lua" )
+
+local function readCommands()
+	local list = fs.list( "rom/programs/" )
+	for i=1, #list do
+		local fn, err = loadstring( fs.read( "rom/programs/"..list[ i ] ) )
+		if not fn then setColor( 14, 2, 2 ) print( err ) end
+		commands[ list[ i ] ] = function( ... )
+			local ok, err = pcall( fn, ... )
+			if not ok then
+				setColor( 14, 2, 2 )
+				print( err )
+			end
+		end
+	end
+end
+
+local function clearLine( sy )
+	for y = 0, 6 do
+		for x=0, gfx.width-1 do
+			gfx.putPixel( x, sy+y, {0,0,0} )
+		end
+	end
+end
+
+readCommands()
+
+local lastInput = ""
+sys.textInput = ""
+local inputedPtr = 1
+local inputedCommands = {}
+function update( dt )
+	if lastInput ~= sys.textInput then
+		local cx = math.floor(cursorX/4)
+		local len = #sys.textInput
+		local left = lastInput:sub( 1, cx )..sys.textInput:sub( len, len )
+		local right = lastInput:sub( cx+1 )
+		sys.textInput = left..right
+		clearLine( cursorY )
+		lastInput = sys.textInput
+		gfx.print( lastInput, 1, cursorY, {15,15,15} )
+		cursorX = cursorX + 4
+	end
+	if sys.keyPressed( 'return' ) then
+		clearLine( cursorY )
+		gfx.print( lastInput, 1, cursorY, {15,15,15} )
+		local msg = ""
+		local input = parseCommands( sys.textInput )
+		inputedCommands[ #inputedCommands + 1 ] = sys.textInput
+		inputedPtr = #inputedCommands + 1
+		sys.textInput = ""
+		if commands[ input[ 1 ] ] == nil then
+			if fs.exists( input[ 1 ] ) then
+				local file = fs.open( input[ 1 ], 'r' )
+				local c = file:read()
+				file:close()
+				cursorY = cursorY + 6
+				local ok, err = loadstring( c )
+				if not ok then setColor( 14, 2, 2 ) print( err ) end
+				local ok, err = pcall( ok, unpack( input, 2 ) )
+				if not ok then setColor( 14, 2, 2 ) print( err ) end
+			else
+				setColor( 14, 2, 2 )
+				msg = "Unknown command or file: "..input[ 1 ]
+			end
+		else
+			cursorY = cursorY + 6
+			commands[ input[ 1 ] ]( unpack( input, 2 ) )
+		end
+		if #msg > 0 then
+			cursorY = cursorY + 6
+			print( msg )
+		end
+		cursorX = 1
+		lastInput = ""
+		setColor( 14, 14, 14 )
+		if cursorY >= gfx.height then
+			cursorY = cursorY - 6
+			gfx.scrollUp( 6 )
+		end
+	end
+	if sys.keyPressed( "left" ) then
+		if cursorX > 1 then
+			cursorX = cursorX - 4
+		end
+		updateCursor = true
+	elseif sys.keyPressed( "right" ) then
+		if cursorX < #lastInput*4 then
+			cursorX = cursorX + 4
+		end
+		updateCursor = true
+	elseif sys.keyPressed( "backspace" ) then
+		local cx = math.floor(cursorX/4)
+		if cx >= 1 then
+			local left = lastInput:sub( 1, cx-1 )
+			local right = lastInput:sub( cx+1 )
+			sys.textInput = left..right
+			lastInput = sys.textInput
+			clearLine( cursorY )
+			cursorX = cursorX - 4
+			updateCursor = true
+		end
+	elseif sys.keyPressed( "up" ) then
+		if #inputedCommands >= 1 then
+			inputedPtr = inputedPtr - 1
+			if inputedPtr <= 1 then
+				inputedPtr = 1
+			end
+			sys.textInput = inputedCommands[ inputedPtr ]
+			lastInput = sys.textInput
+			updateCursor = true
+			cursorX = #lastInput * 4 + 1
+		end
+	elseif sys.keyPressed( "down" ) then
+		if #inputedCommands >= 1 then
+			inputedPtr = inputedPtr + 1
+			if inputedPtr > #inputedCommands then
+				inputedPtr = #inputedCommands + 1
+			end
+			sys.textInput = inputedCommands[ inputedPtr ] or ""
+			lastInput = sys.textInput
+			updateCursor = true
+			cursorX = #lastInput * 4 + 1
+		end
+	end
+	if updateCursor == true then
+		clearLine( cursorY )
+		gfx.print( lastInput, 1, cursorY, {15,15,15} )
+	end
+	updateCursor = false
+	drawCursor()
+end
