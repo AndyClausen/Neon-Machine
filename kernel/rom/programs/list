@@ -1,12 +1,34 @@
 local path = ({ ... })[ 1 ] or ""
+local function convertB( b )
+ local c = 1
+ while true do
+  if b >= 1000 then
+   b = b / 1000
+   c = c + 1
+  else
+   break
+  end
+ end
+ if c == 1 then
+  return b.." bytes"
+ elseif c == 2 then
+  return b.." kilobytes"
+ else
+  return b.." megabytes"
+ end
+end
 if fs.exists( shell.getCurrentDir()..path ) then
 	local list = fs.list( shell.getCurrentDir()..path )
-	setColor( 14, 10, 2 )
 	for i=1, #list do
 		local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
 		if file then
 			if file.type == "directory" then
-				print( list[ i ].." ("..tonumber(file.size).." bytes)" )
+			 if list[i] == 'rom' then
+			  setColor(14,2,2)
+			 else
+			  setColor( 14, 10, 2 )
+			 end
+				print( list[ i ].." ("..convertB(file.size)..")" )
 			end
 		end
 	end
@@ -15,7 +37,7 @@ if fs.exists( shell.getCurrentDir()..path ) then
 		local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
 		if file then
 			if file.type == "file" then
-				print( list[ i ].." ("..tonumber(file.size).." bytes)" )
+				print( list[ i ].." ("..convertB(file.size)..")" )
 			end
 		end
 	end

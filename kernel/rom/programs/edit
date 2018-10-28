@@ -1,0 +1,56 @@
+local args={...}
+if #args ~= 1 then
+ error( 'Usage: edit <filename>', 0 )
+end
+
+local lineX = 8
+local currX = 1
+local cursorX = 0
+local currLine = 1
+local showLines = 1
+local lines={''}
+function update()
+ gfx.clear()
+ local lastInput=lines[currLine]
+ if lines[currLine] ~= sys.textInput then
+  local cx = math.floor(cursorX/4)
+		local len = #sys.textInput
+		local left = lastInput:sub( 1, cx )..sys.textInput:sub( len, len )
+		local right = lastInput:sub( cx+1 )
+		sys.textInput = left..right
+		lines[currLine] = sys.textInput
+		cursorX = cursorX + 4
+	end
+	if sys.keyPressed( "left" ) then
+		if cursorX > 1 then
+			cursorX = cursorX - 4
+		end
+	elseif sys.keyPressed( "right" ) then
+		if cursorX < #lastInput*4 then
+			cursorX = cursorX + 4
+		end
+	elseif sys.keyPressed( "backspace" ) then
+		local cx = math.floor(cursorX/4)
+		if cx >= 1 then
+		 local lastInput=lines[currLine]
+			local left = lastInput:sub( 1, cx-1 )
+			local right = lastInput:sub( cx+1 )
+			sys.textInput = left..right
+			cursorX = cursorX - 4
+			lines[currLine]=sys.textInput
+		end
+	end
+ for i=showLines, #lines+(showLines-1) do
+  local y=(i-1)*(font.getHeight()+1)
+  if #(tostring(i)) > currX then
+   currX = #(tostring(i))
+   lineX = lineX + 4
+  end
+  gfx.print( i, 0, y )
+  gfx.print( lines[ i ], lineX, y )
+ end
+ gfx.drawLine( lineX-3, 0, lineX-3, gfx.height )
+end
+
+
+

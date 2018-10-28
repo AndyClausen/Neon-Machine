@@ -79,8 +79,6 @@ local function shellParsePath( input )
 end
 shell.parsePath = shellParsePath
 
-local mouse = gfx.loadImage( "img/mouse.img" )
-
 local sec = 0
 local col = 15
 local updateCursor = false
@@ -156,8 +154,8 @@ function update( dt )
 		inputedPtr = #inputedCommands + 1
 		sys.textInput = ""
 		if commands[ input[ 1 ] ] == nil then
-			if fs.exists( input[ 1 ] ) then
-				local file = fs.open( input[ 1 ], 'r' )
+			if fs.exists( shell.getCurrentDir()..input[ 1 ] ) and fs.getInfo(shell.getCurrentDir()..input[1]).type == 'file' then
+				local file = fs.open( shell.getCurrentDir()..input[ 1 ], 'r' )
 				local c = file:read()
 				file:close()
 				cursorY = cursorY + 6

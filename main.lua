@@ -18,7 +18,7 @@ math.map = map
 local win = {
 	[ "width" ] = 200;
 	[ "height" ] = 150;
-	[ "scale" ] = 5;
+	[ "scale" ] = 4;
 }
 local blueCutoff = 0
 local blueAmount = 5
@@ -364,17 +364,35 @@ G_ENV = {
 		end;
 		[ "setScreenMode" ] = function( mode )
 			if mode == "low" then
-				win.scale = 3
-				wins = 3
-				winss = 1/3
+				if love.system.getOS() == "android" then
+					win.scale = 1
+					wins = 1
+					winss = 1
+				else
+					win.scale = 3
+					wins = 3
+					winss = 1/3
+				end
 			elseif mode == "high" then
-				win.scale = 5
-				wins = 5
-				winss = 1/5
+				if love.system.getOS() == "android" then
+					win.scale = 3
+					wins = 3
+					winss = 1/3
+				else
+					win.scale = 5
+					wins = 5
+					winss = 1/5
+				end
 			else
-				win.scale = 4
-				wins = 4
-				winss = 1/4
+				if love.system.getOS() == "android" then
+					win.scale = 2
+					wins = 2
+					winss = 1/2
+				else
+					win.scale = 4
+					wins = 4
+					winss = 1/4
+				end
 			end
 			love.window.setMode(0, 0)
 			screen_xoff = love.graphics.getWidth()/2-(win.width*win.scale/2)
@@ -425,14 +443,12 @@ G_ENV = {
 		end;
 		[ "keyPressed" ] = function( key )
 			if currKeyPressed == key then
-				currKeyPressed = ""
 				return true
 			end
 			return false
 		end;
 		[ "keyReleased" ] = function( key )
 			if currKeyReleased == key then
-				currKeyReleased = ""
 				return true
 			end
 			return false
@@ -449,7 +465,6 @@ function love.keypressed(key)
 end
 
 function love.keyreleased(key)
-	currKeyPressed = ""
 	currKeyReleased = key
 end
 
@@ -537,14 +552,22 @@ function love.load()
 	love.window.setMode(0, 0)
 	screen_xoff = love.graphics.getWidth()/2-(win.width*win.scale/2)
 	screen_yoff = love.graphics.getHeight()/2-(win.height*win.scale/2)
-	success = love.window.setMode( round(love.graphics.getWidth()/win.scale), round(love.graphics.getHeight()/win.scale), {
-		[ "vsync" ] = false;
-		[ "stencil" ] = false;
-		[ "borderless" ] = true;
-		[ "fullscreen" ] = true;
-	} )
+	if love.system.getOS() ~= "android" then
+		success = love.window.setMode( round(love.graphics.getWidth()/win.scale), round(love.graphics.getHeight()/win.scale), {
+			[ "vsync" ] = false;
+			[ "stencil" ] = false;
+			[ "borderless" ] = true;
+			[ "fullscreen" ] = true;
+		} )
+	else success = true
+	end
 	--love.graphics.setPointSize( win.scale )
 	if( success ) then
+		if love.system.getOS() == "android" then
+			love.keyboard.setTextInput( true )
+			love.keyboard.setKeyRepeat( true )
+			win.size = 2
+		end
 		reset()
 	end
 	love.graphics.setCanvas()
@@ -555,14 +578,29 @@ local counter = 0
 local genvu = G_ENV.update
 local setCanvas = love.graphics.setCanvas
 function love.update( dt )
+	if love.system.getOS() == "android" then
+		local touches = love.touch.getTouches()
+		for i, id in ipairs(touches) do
+			local x, y=love.touch.getPosition(id)
+			if x < screen_xoff or x > screen_xoff + (canvas:getWidth()*win.scale) then
+				love.keyboard.setTextInput( true )
+			else
+				love.keyboard.setTextInput( false )
+			end
+		end
+	end
 	if genvu then
 		setCanvas( canvas )
 		local ok, err = pcall( genvu, dt )
 		if not ok then error( err ) end
 		setCanvas()
 		mydt = mydt + dt
-		currKeyReleased = ""
-		currKeyPressed = ""
+		if currKeyReleased ~= '' then
+		 currKeyReleased = ""
+		end
+		if currKeyPressed ~= '' then
+		 currKeyPressed = ""
+		end
 		currMouseReleased = 0
 		currMousePressed = 0
 	else
@@ -598,3 +636,11 @@ function love.draw()
 		draw( canvas, screen_xoff, screen_yoff, 0, wins, wins )
 	end
 end
+
+
+
+
+
+
+
+
