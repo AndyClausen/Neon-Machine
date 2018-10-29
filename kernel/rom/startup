@@ -96,17 +96,20 @@ end
 print( "ShellOS(SOS) 0.1" )
 print( "Made by: LeDark Lua" )
 
+local running = false
+local co = nil
 local function readCommands()
 	local list = fs.list( "rom/programs/" )
 	for i=1, #list do
-		local fn, err = loadstring( fs.read( "rom/programs/"..list[ i ] ) )
+		local fn, err = loadstring( fs.read( "rom/programs/"..list[ i ] ), "rom/programs/"..list[ i ] )
 		if not fn then setColor( 14, 2, 2 ) print( err ) end
 		commands[ list[ i ] ] = function( ... )
-			local ok, err = pcall( fn, ... )
-			if not ok then
-				setColor( 14, 2, 2 )
-				print( err )
-			end
+			local args = { ... }
+			co = coroutine.create( function()
+				local ok, err = pcall( fn, unpack( args ) )
+				if not ok then error( err, 0 ) end
+			end )
+			running = true
 		end
 	end
 end
@@ -120,109 +123,129 @@ local function clearLine( sy )
 end
 
 readCommands()
+sys.setKeyRepeat( true )
+
 
 local lastInput = ""
 sys.textInput = ""
 local inputedPtr = 1
 local inputedCommands = {}
 function update( dt )
-	if lastInput ~= sys.textInput then
-		local cx = math.floor(cursorX/4)
-		local len = #sys.textInput
-		local left = lastInput:sub( 1, cx )..sys.textInput:sub( len, len )
-		local right = lastInput:sub( cx+1 )
-		sys.textInput = left..right
-		clearLine( cursorY )
-		lastInput = sys.textInput
-		gfx.print( lastInput, 1, cursorY, {15,15,15} )
-		cursorX = cursorX + 4
-	end
-	if sys.keyPressed( 'return' ) then
-		clearLine( cursorY )
-		gfx.print( lastInput, 1, cursorY, {15,15,15} )
-		local msg = ""
-		local input = parseCommands( sys.textInput )
-		inputedCommands[ #inputedCommands + 1 ] = sys.textInput
-		inputedPtr = #inputedCommands + 1
-		sys.textInput = ""
-		if commands[ input[ 1 ] ] == nil then
-			if fs.exists( shell.getCurrentDir()..input[ 1 ] ) and fs.getInfo(shell.getCurrentDir()..input[1]).type == 'file' then
-				local file = fs.open( shell.getCurrentDir()..input[ 1 ], 'r' )
-				local c = file:read()
-				file:close()
-				cursorY = cursorY + 6
-				local ok, err = loadstring( c )
-				if not ok then setColor( 14, 2, 2 ) print( err ) end
-				local ok, err = pcall( ok, unpack( input, 2 ) )
-				if not ok then setColor( 14, 2, 2 ) print( err ) end
-			else
-				setColor( 14, 2, 2 )
-				msg = "Unknown command or file: "..input[ 1 ]
-			end
-		else
-			cursorY = cursorY + 6
-			commands[ input[ 1 ] ]( unpack( input, 2 ) )
-		end
-		if #msg > 0 then
-			cursorY = cursorY + 6
-			print( msg )
-		end
-		cursorX = 1
-		lastInput = ""
-		setColor( 14, 14, 14 )
-		if cursorY >= gfx.height then
-			cursorY = cursorY - 6
-			gfx.scrollUp( 6 )
-		end
-	end
-	if sys.keyPressed( "left" ) then
-		if cursorX > 1 then
-			cursorX = cursorX - 4
-		end
-		updateCursor = true
-	elseif sys.keyPressed( "right" ) then
-		if cursorX < #lastInput*4 then
-			cursorX = cursorX + 4
-		end
-		updateCursor = true
-	elseif sys.keyPressed( "backspace" ) then
-		local cx = math.floor(cursorX/4)
-		if cx >= 1 then
-			local left = lastInput:sub( 1, cx-1 )
+	if running == false then
+		if lastInput ~= sys.textInput then
+			local cx = math.floor(cursorX/4)
+			local len = #sys.textInput
+			local left = lastInput:sub( 1, cx )..sys.textInput:sub( len, len )
 			local right = lastInput:sub( cx+1 )
 			sys.textInput = left..right
-			lastInput = sys.textInput
 			clearLine( cursorY )
-			cursorX = cursorX - 4
-			updateCursor = true
-		end
-	elseif sys.keyPressed( "up" ) then
-		if #inputedCommands >= 1 then
-			inputedPtr = inputedPtr - 1
-			if inputedPtr <= 1 then
-				inputedPtr = 1
-			end
-			sys.textInput = inputedCommands[ inputedPtr ]
 			lastInput = sys.textInput
-			updateCursor = true
-			cursorX = #lastInput * 4 + 1
+			gfx.print( lastInput, 1, cursorY, {15,15,15} )
+			cursorX = cursorX + 4
 		end
-	elseif sys.keyPressed( "down" ) then
-		if #inputedCommands >= 1 then
-			inputedPtr = inputedPtr + 1
-			if inputedPtr > #inputedCommands then
-				inputedPtr = #inputedCommands + 1
+		if sys.keyPressed( 'return' ) then
+			sys.setKeyRepeat( false )
+			clearLine( cursorY )
+			gfx.print( lastInput, 1, cursorY, {15,15,15} )
+			local msg = ""
+			local input = parseCommands( sys.textInput )
+			inputedCommands[ #inputedCommands + 1 ] = sys.textInput
+			inputedPtr = #inputedCommands + 1
+			sys.textInput = ""
+			if commands[ input[ 1 ] ] == nil then
+				if fs.exists( shell.getCurrentDir()..input[ 1 ] ) and fs.getInfo(shell.getCurrentDir()..input[1]).type == 'file' then
+					local file = fs.open( shell.getCurrentDir()..input[ 1 ], 'r' )
+					local c = file:read()
+					file:close()
+					cursorY = cursorY + 6
+					local ok, err = loadstring( c, shell.getCurrentDir()..input[ 1 ] )
+					if not ok then setColor( 14, 2, 2 ) print( err ) end
+					co = coroutine.create( function()
+						local ok, err = pcall( ok, unpack( input, 2 ) )
+						if not ok then error( err, 0 ) end
+					end )
+					running = true
+				else
+					setColor( 14, 2, 2 )
+					msg = "Unknown command or file: "..input[ 1 ]
+				end
+			else
+				cursorY = cursorY + 6
+				commands[ input[ 1 ] ]( unpack( input, 2 ) )
 			end
-			sys.textInput = inputedCommands[ inputedPtr ] or ""
-			lastInput = sys.textInput
+			if #msg > 0 then
+				cursorY = cursorY + 6
+				print( msg )
+			end
+			cursorX = 1
+			lastInput = ""
+			setColor( 14, 14, 14 )
+			if cursorY >= gfx.height then
+				cursorY = cursorY - 6
+				gfx.scrollUp( 6 )
+			end
+			sys.setKeyRepeat( true )
+		end
+		if sys.keyPressed( "left" ) then
+			if cursorX > 1 then
+				cursorX = cursorX - 4
+			end
 			updateCursor = true
-			cursorX = #lastInput * 4 + 1
+		elseif sys.keyPressed( "right" ) then
+			if cursorX < #lastInput*4 then
+				cursorX = cursorX + 4
+			end
+			updateCursor = true
+		elseif sys.keyPressed( "backspace" ) then
+			local cx = math.floor(cursorX/4)
+			if cx >= 1 then
+				local left = lastInput:sub( 1, cx-1 )
+				local right = lastInput:sub( cx+1 )
+				sys.textInput = left..right
+				lastInput = sys.textInput
+				clearLine( cursorY )
+				cursorX = cursorX - 4
+				updateCursor = true
+			end
+		elseif sys.keyPressed( "up" ) then
+			if #inputedCommands >= 1 then
+				inputedPtr = inputedPtr - 1
+				if inputedPtr <= 1 then
+					inputedPtr = 1
+				end
+				sys.textInput = inputedCommands[ inputedPtr ]
+				lastInput = sys.textInput
+				updateCursor = true
+				cursorX = #lastInput * 4 + 1
+			end
+		elseif sys.keyPressed( "down" ) then
+			if #inputedCommands >= 1 then
+				inputedPtr = inputedPtr + 1
+				if inputedPtr > #inputedCommands then
+					inputedPtr = #inputedCommands + 1
+				end
+				sys.textInput = inputedCommands[ inputedPtr ] or ""
+				lastInput = sys.textInput
+				updateCursor = true
+				cursorX = #lastInput * 4 + 1
+			end
+		end
+		if updateCursor == true then
+			clearLine( cursorY )
+			gfx.print( lastInput, 1, cursorY, {15,15,15} )
+		end
+		updateCursor = false
+		drawCursor()
+	else
+		if coroutine.status( co ) == "suspended" then
+			local ok, err = coroutine.resume( co )
+			if not ok then
+				setColor( 14, 2, 2 )
+				print( err )
+				setColor( 14, 14, 14 )
+			end
+		elseif coroutine.status( co ) == "dead" then
+			running = false
 		end
 	end
-	if updateCursor == true then
-		clearLine( cursorY )
-		gfx.print( lastInput, 1, cursorY, {15,15,15} )
-	end
-	updateCursor = false
-	drawCursor()
 end
