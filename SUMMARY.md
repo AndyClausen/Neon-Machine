@@ -8,4 +8,5 @@
   * [Contributing](getting-started/contribution.md)
 * [Contributors/credits](contributors-credits.md)
 * [Contact](contact.md)
+* [Changelog](changelog.md)
 
