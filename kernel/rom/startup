@@ -27,17 +27,9 @@ local commands = {
 }
 
 local function parseCommands( input )
-	input = input .. " "
 	local cm = {}
-	local word = ""
-	for i=1, #input do
-		local c = input:sub( i, i )
-		if c == " " then
-			cm[ #cm + 1 ] = word
-			word = ""
-		else
-			word = word .. c
-		end
+	for word in input:gmatch("%S+") do
+		table.insert(cm, word)
 	end
 	return cm
 end
