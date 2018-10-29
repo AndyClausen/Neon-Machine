@@ -1,0 +1,10 @@
+local args = { ... } or {}
+local path = shell.getCurrentDir() .. (args[1] or "")
+
+if #args ~= 1 then
+	error( "Expected 1 argument, got "..#args, 2 )
+elseif fs.exists( path ) == false then
+	error( "Directory or file does not exist at '"..path.."'", 2 )
+else
+	fs.delete( path )
+end

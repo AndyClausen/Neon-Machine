@@ -19,27 +19,32 @@ local function convertB( b )
 end
 if fs.exists( shell.getCurrentDir()..path ) then
 	local list = fs.list( shell.getCurrentDir()..path )
-	for i=1, #list do
-		local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
-		if file then
-			if file.type == "directory" then
-			 if list[i] == 'rom' then
-			  setColor(14,2,2)
-			 else
-			  setColor( 14, 10, 2 )
-			 end
-				print( list[ i ].." ("..convertB(file.size)..")" )
+	if #list > 0 then
+		for i=1, #list do
+			local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
+			if file then
+				if file.type == "directory" then
+				 if list[i] == 'rom' then
+				  setColor(14,2,2)
+				 else
+				  setColor( 14, 10, 2 )
+				 end
+					print( list[ i ].." ("..convertB(file.size)..")" )
+				end
 			end
 		end
-	end
-	setColor( 4, 14, 2 )
-	for i=1, #list do
-		local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
-		if file then
-			if file.type == "file" then
-				print( list[ i ].." ("..convertB(file.size)..")" )
+		setColor( 4, 14, 2 )
+		for i=1, #list do
+			local file = fs.getInfo( shell.getCurrentDir()..path.."/"..list[ i ] )
+			if file then
+				if file.type == "file" then
+					print( list[ i ].." ("..convertB(file.size)..")" )
+				end
 			end
 		end
+	else
+		setColor( 14, 2, 2 )
+		print( "No files or directories found!" )
 	end
 else
 	setColor( 14, 2, 2 )
