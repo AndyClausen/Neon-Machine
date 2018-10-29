@@ -364,7 +364,7 @@ G_ENV = {
 		end;
 		[ "setScreenMode" ] = function( mode )
 			if mode == "low" then
-				if love.system.getOS() == "android" then
+				if love.system.getOS() == "Android" then
 					win.scale = 1
 					wins = 1
 					winss = 1
@@ -374,7 +374,7 @@ G_ENV = {
 					winss = 1/3
 				end
 			elseif mode == "high" then
-				if love.system.getOS() == "android" then
+				if love.system.getOS() == "Android" then
 					win.scale = 3
 					wins = 3
 					winss = 1/3
@@ -384,7 +384,7 @@ G_ENV = {
 					winss = 1/5
 				end
 			else
-				if love.system.getOS() == "android" then
+				if love.system.getOS() == "Android" then
 					win.scale = 2
 					wins = 2
 					winss = 1/2
@@ -548,11 +548,16 @@ G_ENV.gfx.getPixel = function( x, y )
 end
 
 function love.load()
-	love.filesystem.setIdentity( "LuaOS", false )
+	if love.system.getOS() == "Android" then
+		love.keyboard.setTextInput( true )
+		love.keyboard.setKeyRepeat( true )
+		win.size = 2
+	end
+	love.filesystem.setIdentity( "Neon Machine", false )
 	love.window.setMode(0, 0)
 	screen_xoff = love.graphics.getWidth()/2-(win.width*win.scale/2)
 	screen_yoff = love.graphics.getHeight()/2-(win.height*win.scale/2)
-	if love.system.getOS() ~= "android" then
+	if love.system.getOS() ~= "Android" then
 		success = love.window.setMode( round(love.graphics.getWidth()/win.scale), round(love.graphics.getHeight()/win.scale), {
 			[ "vsync" ] = false;
 			[ "stencil" ] = false;
@@ -563,11 +568,6 @@ function love.load()
 	end
 	--love.graphics.setPointSize( win.scale )
 	if( success ) then
-		if love.system.getOS() == "android" then
-			love.keyboard.setTextInput( true )
-			love.keyboard.setKeyRepeat( true )
-			win.size = 2
-		end
 		reset()
 	end
 	love.graphics.setCanvas()
@@ -578,7 +578,7 @@ local counter = 0
 local genvu = G_ENV.update
 local setCanvas = love.graphics.setCanvas
 function love.update( dt )
-	if love.system.getOS() == "android" then
+	if love.system.getOS() == "Android" then
 		local touches = love.touch.getTouches()
 		for i, id in ipairs(touches) do
 			local x, y=love.touch.getPosition(id)
