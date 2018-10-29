@@ -1,0 +1,10 @@
+local args = { ... } or {}
+local path = shell.getCurrentDir() .. (args[1] or "")
+
+if #args ~= 1 then
+	error( "Expected 1 argument, got "..#args, 2 )
+elseif fs.exists( path ) then
+	error( "Directory or file already exists at '"..path.."'", 2 )
+else
+	fs.mkdir( path )
+end
