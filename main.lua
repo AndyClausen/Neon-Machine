@@ -1,5 +1,6 @@
 local CREDITS = {
-	"LeDark Lua a.k.a. Laurynas Šuopys",	
+	"LeDark Lua a.k.a. Laurynas Šuopys",
+	"Andreas \"Andy\" Clausen"
 }
 
 local socket = require("socket")
