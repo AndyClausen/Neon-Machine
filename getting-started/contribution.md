@@ -31,6 +31,8 @@ If you feel like you've done a great job spreading the word, feel free to [conta
 
 Did you find a spelling error or do you wanna add a whole new section? Send us the text/pictures/etc., including a link to the page if it's an edit, and we'll put it in!
 
+Otherwise, you can edit the `.md` files directly and [make a PR](contribution.md#development).
+
 ## Testing
 
 Just by downloading and using Neon Machine you are helping us by testing out the functionality - if you found a bug or have a suggestion, it'd be really helpful to [make an issue about it](../contact.md#github).
