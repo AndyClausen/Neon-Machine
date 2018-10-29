@@ -8,7 +8,7 @@ A simple "Virtual Machine" built with Love2D and Lua for all devices.
 * Need to add HTML stuff.
 
 ## Known bugs:
-* When mouse goes off screen, the canvas draws all sort of colors.
+* None.
 
-## Who can contribute?
-Everyone who wants to make this **project** a reality!
+## Documentation and other information
+Check this link here: [Neon Machine Documentation](https://neon-machine.gitbook.io/docs/ "Link to the documentation")
