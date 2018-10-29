@@ -1,1 +1,1 @@
-"C:\Program Files\LOVE\love.exe" "%UserProfile%\Desktop\Neon Machine"
+"C:\Program Files\LOVE\love.exe" ""
