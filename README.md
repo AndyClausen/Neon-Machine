@@ -1,4 +1,4 @@
-# LuaOS
+# Neon Machine
 A simple "Virtual Machine" built with Love2D and Lua for all devices.
 
 ## TODO:
