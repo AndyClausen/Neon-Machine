@@ -583,9 +583,13 @@ function love.update( dt )
 		for i, id in ipairs(touches) do
 			local x, y=love.touch.getPosition(id)
 			if x < screen_xoff or x > screen_xoff + (canvas:getWidth()*win.scale) then
-				love.keyboard.setTextInput( true )
+				if love.keyboard.hasTextInput() == false then
+					love.keyboard.setTextInput( true )
+				end
 			else
-				love.keyboard.setTextInput( false )
+				if love.keyboard.hasTextInput() == true then
+					love.keyboard.setTextInput( false )
+				end
 			end
 		end
 	end
