@@ -4,7 +4,7 @@ description: This section will cover the installation and execution of Neon Mach
 
 # Getting started
 
-First of make sure you have the required software:
+First off make sure you have the required software:
 
 {% page-ref page="requirements.md" %}
 
