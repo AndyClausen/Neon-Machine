@@ -1,14 +1,14 @@
-# Neon Machine
-A simple "Virtual Machine" built with Love2D and Lua for all devices.
+# What is Neon Machine
 
-## TODO:
-* **Slow rendering**  Need to make that all the rendering would be done on GPU not the CPU
-* Virtual CPU speed is fixed, need to calculate that and determine when to slow down the program.
-* Need to add networking.
-* Need to add HTML stuff.
+## Introduction
 
-## Known bugs:
-* None.
+Neon Machine is a Virtual Machine \(VM\) built on the Love2D Lua Engine. It is similar to the ComputerCraft mod for Minecraft and essentially consists of a console/terminal.
 
-## Documentation and other information
-Check this link here: [Neon Machine Documentation](https://neon-machine.gitbook.io/docs/ "Link to the documentation")
+If you'd like to try it out, or maybe even help developing it, head over to [Getting started](getting-started/) and follow the instructions.
+
+## Contributors/credits
+
+People who have helped to make this project, or otherwise deserve a shout-out
+
+{% page-ref page="contributors-credits.md" %}
+
