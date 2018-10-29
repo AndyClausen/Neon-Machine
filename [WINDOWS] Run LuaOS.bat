@@ -1,1 +1,1 @@
-"C:\Program Files\LOVE\love.exe" "%UserProfile%\Desktop\LuaOS-master"
+"C:\Program Files\LOVE\love.exe" "%UserProfile%\Desktop\Neon Machine"
