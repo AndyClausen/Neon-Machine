@@ -3,6 +3,7 @@ if #args ~= 1 then
 	error( 'Usage: edit <filename>', 0 )
 end
 
+local tabSize = "   "
 local lines={''}
 local path = shell.getCurrentDir()..args[1]
 
@@ -24,7 +25,8 @@ local showLines = 1
 sys.setKeyRepeat( true )
 
 local GREEN = { 2, 10, 2 }
-local DARKER = { 13, 13, 13 }
+local DARKER = { 8, 8, 8 }
+local DARK = { 2, 2, 2 }
 
 local sec = 0
 local col = 15
@@ -59,8 +61,40 @@ local function calc( a )
 	return b - 4
 end
 
-local currIndent = "LUA"
 local bottom = false
+local timer = 0
+local savedStr = ""
+local currSelected = 1
+local options = {
+	[1]=function()
+		shell.clearScreen()
+		sys.textInput = ''
+		error()
+	end;
+	[2]=function()
+		local file=fs.open( path, 'w' )
+		for i=1, #lines do
+			file:write( lines[i]..'\n' )
+		end
+		file:close()
+		savedStr = "Saved."
+		timer = 60*4
+		sys.textInput = ''
+		bottom = false
+	end;
+	[3]=function()
+		local file=fs.open( path.."_temp", 'w' )
+		for i=1, #lines do
+			file:write( lines[i]..'\n' )
+		end
+		file:close()
+		savedStr = "Runned."
+		shell.run( path.."_temp" )
+		fs.delete( path.."_temp" )
+	end;
+}
+
+local currIndent = "LUA"
 local CKEYWORD = {12,1,8}
 local CNUMBER = {8,2,13}
 local CDATA = {8,2,13}
@@ -105,46 +139,65 @@ local KEYWORDS = {
 	}
 }
 
-local function tryWrite( x, y, sLine, regex, clr, minusOne )
-	local match = string.match( sLine, regex )
+local prnt = gfx.print
+local prnta = gfx.printAlpha
+local mtch = string.match
+local function tryWrite( x, y, sLine, regex, clr, minusOne, alpha )
+	local match = mtch( sLine, regex )
+	local oldmatch = match
 	if match then
-		if minusOne then
+		if minusOne == true then
 			match = match:sub( 1, #match-1 )
+			oldmatch = oldmatch:sub( 1, #oldmatch-1 )
 		end
-		if type( clr ) == "function" then
-			gfx.print( match, x, y, clr( match ) )
+		if #match > 50 then
+			match = match:sub( 1, 50 )
+		end
+		if alpha == true then
+			if type( clr ) == "function" then
+				clr = clr( match )
+				clr[4] = 7
+				prnta( match, x, y, clr )
+			else
+				clr[4] = 7
+				prnta( match, x, y, clr )
+			end
 		else
-			gfx.print( match, x, y, clr )
+			if type( clr ) == "function" then
+				prnt( match, x, y, clr( match ) )
+			else
+				prnt( match, x, y, clr )
+			end
 		end
-		return {string.sub( sLine, string.len(match) + 1 ), x+(string.len(match)*4)}
+		return {sLine:sub( #oldmatch + 1 ), x+(#oldmatch*4)}
 	end
 	return nil
 end
 
-local function writeHighlighted( x, y, sLine )
-	while string.len(sLine) > 0 do
+local function writeHighlighted( x, y, sLine, alpha )
+	while #sLine > 0 do
 		local tbl = 
-			tryWrite( x, y, sLine, "^%-%-%[%[.-%]%]", CCOMMENT ) or
-			tryWrite( x, y, sLine, "^%-%-.*", CCOMMENT ) or
-			tryWrite( x, y, sLine, "^\"\"", CSTRING ) or
-			tryWrite( x, y, sLine, "^\".-[^\\]\"", CSTRING ) or
-			tryWrite( x, y, sLine, "^\'\'", CSTRING ) or
-			tryWrite( x, y, sLine, "^\'.-[^\\]\'", CSTRING ) or
-			tryWrite( x, y, sLine, "^%[%[.-%]%]", CSTRING ) or
-			tryWrite( x, y, sLine, "^%d+", CNUMBER ) or
-			tryWrite( x, y, sLine, "^[%+%-%*/%%%^%#%=%<%>%~]+", COTHER ) or
-			tryWrite( x, y, sLine, "^(%.%.%.)%.+", CTEXT ) or
-			tryWrite( x, y, sLine, "^(%.%.%.)", CLUAARGS ) or
-			tryWrite( x, y, sLine, "^(%.%.)", CLUASTRCONCAT ) or
-			tryWrite( x, y, sLine, "^[%w_]+%(", CFUNC, true ) or
+			tryWrite( x, y, sLine, "^%-%-%[%[.-%]%]", CCOMMENT, nil, alpha ) or
+			tryWrite( x, y, sLine, "^%-%-.*", CCOMMENT, nil, alpha ) or
+			tryWrite( x, y, sLine, "^\"\"", CSTRING, nil, alpha ) or
+			tryWrite( x, y, sLine, "^\".-[^\\]\"", CSTRING, nil, alpha ) or
+			tryWrite( x, y, sLine, "^\'\'", CSTRING, nil, alpha ) or
+			tryWrite( x, y, sLine, "^\'.-[^\\]\'", CSTRING, nil, alpha ) or
+			tryWrite( x, y, sLine, "^%[%[.-%]%]", CSTRING, nil, alpha ) or
+			tryWrite( x, y, sLine, "^%d+", CNUMBER, nil, alpha ) or
+			tryWrite( x, y, sLine, "^[%+%-%*/%%%^%#%=%<%>%~]+", COTHER, nil, alpha ) or
+			tryWrite( x, y, sLine, "^(%.%.%.(%.+))", CTEXT, nil, alpha ) or
+			tryWrite( x, y, sLine, "^(%.%.%.)", CLUAARGS, nil, alpha ) or
+			tryWrite( x, y, sLine, "^(%.%.)", CLUASTRCONCAT, nil, alpha ) or
+			tryWrite( x, y, sLine, "^[%w_]+%(", CFUNC, true, alpha ) or
 			tryWrite( x, y, sLine, "^[%w_]+", function( match )
 				local curr = KEYWORDS[ currIndent ]
 				if curr[ match ] then
 					return curr[ match ]
 				end
 				return CTEXT
-			end ) or
-			tryWrite( x, y, sLine, "^[^%w_]", CTEXT )
+			end, nil, alpha ) or
+			tryWrite( x, y, sLine, "^[^%w_]", CTEXT, nil, alpha )
 		if tbl then
 			sLine = tbl[ 1 ]
 			x = tbl[ 2 ] or x
@@ -152,28 +205,42 @@ local function writeHighlighted( x, y, sLine )
 	end
 end
 
+local floor = math.floor
+local flrct = gfx.drawFillRect
+local one4 = 1/4
+local one10 = 1/10
+local clrscr = gfx.clear
+local coye = coroutine.yield
+local gemou = sys.getMousePos
+local drwln = gfx.drawLine
 while true do
-	coroutine.yield()
-	local mx, my = sys.getMousePos()
-	gfx.clear()
-	local currX = (math.floor(#lines/10)*4)
+	coye()
+	local mx, my = gemou()
+	clrscr()
+	local currX = (#(tostring(#lines))-1)*4
 	local lastInput=lines[currLine]
-	gfx.drawFillRect( 0, gfx.height-7, gfx.width-1, 7 )
+	flrct( 0, gfx.height-7, gfx.width-1, 7 )
 	local h = font.getHeight()+1
-	for i=showLines, #lines+(showLines-1) do
-		local y=(i-1)*h
-		gfx.print( i, 0, y )
-		--gfx.print( lines[ i ], 8+currX, y )
-		writeHighlighted( 8+currX, y, lines[ i ] )
+	for i=showLines, 23+showLines do
+		if lines[ i ] then
+			local y=(i-showLines)*h
+			if i==23+showLines then
+				prnt( i, 0, y, {7,7,7} )
+				writeHighlighted( 8+currX, y, lines[ i ], true )
+			else
+				prnt( i, 0, y )
+				writeHighlighted( 8+currX, y, lines[ i ] )
+			end
+		end
 	end
-	gfx.drawLine( 5+currX, 0, 5+currX, gfx.height )
+	drwln( 5+currX, 0, 5+currX, gfx.height )
 	if sys.keyPressed( 'lctrl' ) then
 		bottom = not bottom
 	end
 	if bottom == false then
 		if sys.mousePressed( 1 ) then
 			local tx = mx-8-currX
-			currLine = math.round((my/6)+.5)
+			currLine = math.round((my/6)+.5)+(showLines-1)
 			if currLine > #lines then
 				currLine = #lines
 			elseif currLine <= 0 then
@@ -187,6 +254,14 @@ while true do
 				cursorX = #lastInput*4
 			end
 			updateCursor = true
+		elseif sys.mousePressed( "wu" ) then
+			if showLines > 1 then
+				showLines = showLines - 1
+			end
+		elseif sys.mousePressed( "wd" ) then
+			if showLines <= #lines-25 then
+				showLines = showLines + 1
+			end
 		end
 
 		if sys.keyPressed( "up" ) then
@@ -199,6 +274,9 @@ while true do
 				else
 					lastInput = lines[currLine]
 					sys.textInput = lines[currLine]
+				end
+				if currLine < showLines then
+					showLines = showLines - 1
 				end
 				updateCursor = true
 			end
@@ -213,6 +291,9 @@ while true do
 					lastInput = lines[currLine]
 					sys.textInput = lines[currLine]
 				end
+				if currLine > showLines+22 then
+					showLines = showLines + 1
+				end
 				updateCursor = true
 			end
 		elseif sys.keyPressed( "left" ) then
@@ -226,7 +307,7 @@ while true do
 				updateCursor = true
 			end
 		elseif sys.keyPressed( "return" ) then
-			local cx = math.floor(cursorX*(1/4))
+			local cx = math.floor(cursorX*one4)
 			local half = lines[currLine]:sub( cx+1, #lines[currLine] )
 			lines[currLine]=lines[currLine]:sub(1, cx)
 			currLine = currLine + 1
@@ -235,7 +316,7 @@ while true do
 			lastInput = half
 			cursorX = 0
 		elseif sys.keyPressed( "backspace" ) then
-			local cx = math.floor(cursorX/4)
+			local cx = math.floor(cursorX*one4)
 			if cx >= 1 then
 				local left = lastInput:sub( 1, cx-1 )
 				local right = lastInput:sub( cx+1 )
@@ -245,26 +326,28 @@ while true do
 				updateCursor = true
 			else
 				if #lines > 1 then
-					updateCursor = true
-					local tmp = lines[ currLine ]
-					currLine = currLine - 1
-					table.remove( lines, currLine + 1 )
-					local x = (#lines[ currLine ] * 4)
-					if x <= 0 then
-						cursorX = 0
-					else
-						cursorX = x
+					if currLine > 1 then
+						updateCursor = true
+						local tmp = lines[ currLine ]
+						currLine = currLine - 1
+						table.remove( lines, currLine + 1 )
+						local x = (#lines[ currLine ] * 4)
+						if x <= 0 then
+							cursorX = 0
+						else
+							cursorX = x
+						end
+						lines[ currLine ] = lines[ currLine ]..tmp
+						sys.textInput = lines[ currLine ]
+						lastInput = lines[ currLine ]
 					end
-					lines[ currLine ] = lines[ currLine ]..tmp
-					sys.textInput = lines[ currLine ]
-					lastInput = lines[ currLine ]
 				end
 			end
 		elseif sys.keyPressed( "tab" ) then
 			sys.textInput = sys.textInput .. "\t"
 		else
 			if lines[currLine] ~= sys.textInput then
-				local cx = math.floor(cursorX*(1/4))
+				local cx = floor(cursorX*one4)
 				local len = #sys.textInput
 				local left = lastInput:sub( 0, cx )..sys.textInput:sub( len, len )
 				local right = lastInput:sub( cx+1 )
@@ -273,28 +356,56 @@ while true do
 				cursorX = cursorX + 4
 			end
 		end
-		drawCursor( currX+8, (currLine*h)-h )
+		drawCursor( currX+8, ((currLine-(showLines-1))*h)-h )
 		updateCursor = false
 	else
-		local highlightSave = false
-		local highlightClose = false
-		gfx.print( "Save", 1, gfx.height-6, GREEN )
-		if mx >= 21 and mx < 38 then
+		if sys.keyPressed( 'return' ) then
+			options[ currSelected ]()
+		elseif sys.keyPressed( 'left' ) then
+			currSelected = currSelected - 1
+			if currSelected < 1 then
+				currSelected = #options
+			end
+		elseif sys.keyPressed( 'right' ) then
+			currSelected = currSelected + 1
+			if currSelected > #options then
+				currSelected = 1
+			end
+		end
+		if sys.mousePressed( 1 ) then
+			options[currSelected]()
+		end	
+		local highlightClose = (currSelected == 1) and true or false
+		local highlightSave = (currSelected == 2) and true or false
+		local highlightRun = (currSelected == 3) and true or false
+		if mx >= 5 and mx < 25 then
+			currSelected = 1
 			highlightClose = true
+		end
+		if mx >= 33 and mx < 49 then
+			currSelected = 2
+			highlightSave = true
+		end
+		if highlightSave == true then
+			gfx.print( "[SAVE]", 29, gfx.height-6, DARKER )
 		else
-			highlightClose = false
+			gfx.print( "SAVE", 33, gfx.height-6, DARK )
+		end
+		if highlightRun == true then
+			gfx.print( "[RUN]", 53, gfx.height-6, DARKER )
+		else
+			gfx.print( "RUN", 57, gfx.height-6, DARK )
 		end
 		if highlightClose == true then
-			if sys.mousePressed( 1 ) then
-				gfx.clear()
-				sys.textInput = ''
-				error()
-			end
-			gfx.drawFillRect( 20, gfx.height-6, 21, 5, DARKER )	
+			gfx.print( "[CLOSE]", 1, gfx.height-6, DARKER )
+		else
+			gfx.print( "CLOSE", 5, gfx.height-6, DARK )
 		end
-		gfx.print( "Close", 21, gfx.height-6, GREEN )
 	end
+	gfx.print( savedStr, gfx.width-(#savedStr*4)-1, gfx.height-6, DARK )
 	gfx.drawImage( mouseImg, mx, my )
+	timer = timer - 1
+	if timer < 0 then timer = 0 savedStr = path end
 end
 
 

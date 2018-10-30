@@ -124,17 +124,22 @@ gfx.print=function(v, x, y, c)
 		local pp = gfx.putPixel
 		local fgw = font.getWidth
 		for i=1, #v do
+			if x+offset >= gfx.width then
+				break
+			end
 			local char=tochar(v, i)-0x1F
 			local curr=font.fonts[font.current]
 			for yy=1, #curr do
 				local curryy=curr[yy]
 				for j=1, #curryy do
-					if curryy then
-						local curryychar = curryy[char]
-						if curryychar then
-							if curryychar[j]==1 then
-								pp(x+j+offset, y+(yy-1), c)
-							end
+					local curryychar = curryy[char]
+					local xof = x+j+offset
+					if xof >= gfx.width then
+						break
+					end
+					if curryychar then
+						if curryychar[j]==1 then
+							pp(xof, y+(yy-1), c)
 						end
 					end
 				end
@@ -148,23 +153,28 @@ gfx.printAlpha=function(v, x, y, rgba)
 		x = x - 1
 		v=tostring(v)
 		local offset=0
+		local pp=gfx.putPixel
 		for i=1, #v do
+			if x+offset >= gfx.width then
+				break
+			end
 			local char=tochar(v, i)-0x1F
 			local curr=font.fonts[font.current]
 			for yy=1, #curr do
 				local curryy=curr[yy]
 				for j=1, #curryy do
-					if curryy then
-						if curryy[char] then
-							if curryy[char][j]==1 then
-								local xloc=x+j+offset
-								local yloc=y+(yy-1)
-								rOut = ((rgba[1] * rgba[4]) / 15) + ((gfx.getPixel( xloc, yloc )[1] * 15 * ( 15 - rgba[4] )) / 225)
-								gOut = ((rgba[2] * rgba[4]) / 15) + ((gfx.getPixel( xloc, yloc )[2] * 15 * ( 15 - rgba[4] )) / 225)
-								bOut = ((rgba[3] * rgba[4]) / 15) + ((gfx.getPixel( xloc, yloc )[3] * 15 * ( 15 - rgba[4] )) / 225)
-								gfx.putPixel(xloc, yloc, {math.round(rOut),math.round(gOut),math.round(bOut)})
-								
-							end
+					local curryychar = curryy[char]
+					local xloc=x+j+offset
+					if xloc >= gfx.width then
+						break
+					end
+					if curryychar then
+						if curryychar[j]==1 then
+							local yloc=y+(yy-1)
+							rOut = ((rgba[1] * rgba[4]) / 15) + ((gfx.getPixel( xloc, yloc )[1] * 15 * ( 15 - rgba[4] )) / 225)
+							gOut = ((rgba[2] * rgba[4]) / 15) + ((gfx.getPixel( xloc, yloc )[2] * 15 * ( 15 - rgba[4] )) / 225)
+							bOut = ((rgba[3] * rgba[4]) / 15) + ((gfx.getPixel( xloc, yloc )[3] * 15 * ( 15 - rgba[4] )) / 225)
+							pp(xloc, yloc, {round(rOut),round(gOut),round(bOut)})
 						end
 					end
 				end

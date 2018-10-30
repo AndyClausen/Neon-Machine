@@ -1,14 +1,46 @@
+local commands = {
+	[ "clear" ] = function()
+		shell.clearScreen()
+	end;
+	[ "shutdown" ] = os.exit;
+	[ "reboot" ] = sys.reset;
+}
+local running = false
+local co = nil
 local currDir = ""
+local cursorY = 1
+local timers = {}
 shell = {
 	[ "setCurrentDir" ] = function( dir ) currDir = dir end;
 	[ "getCurrentDir" ] = function() return currDir end;
+	[ "clearScreen" ] = function()
+		gfx.clear()
+		cursorY = 1
+	end;
+	[ "run" ] = function( prg, ... )
+		if commands[ prg ] then
+			commands[ prg ]( ... )
+		else
+			local input = { ... }
+			local file = fs.open( prg, 'r' )
+			local c = file:read()
+			file:close()
+			cursorY = cursorY + 6
+			local ok, err = loadstring( c, prg )
+			if not ok then setColor( 14, 2, 2 ) print( err ) end
+			co = coroutine.create( function()
+				local ok, err = pcall( ok, unpack( input ) )
+				if not ok then error( err, 0 ) end
+			end )
+			running = true
+		end
+	end;
 }
 local currColor = { 14, 14, 14 }
 function setColor( r, g, b )
 	currColor = { r, g, b }
 end
 local cursorX = 1
-local cursorY = 1
 function print( ... )
 	if cursorY >= gfx.height then
 		cursorY = cursorY - 6
@@ -17,14 +49,6 @@ function print( ... )
 	gfx.print( sys.textInput .. table.concat( { ... } ), 1, cursorY, currColor )
 	cursorY = cursorY + 6
 end
-local commands = {
-	[ "clear" ] = function()
-		gfx.clear()
-		cursorY = 1
-	end;
-	[ "shutdown" ] = os.exit;
-	[ "reboot" ] = sys.reset;
-}
 
 local function parseCommands( input )
 	local cm = {}
@@ -95,9 +119,6 @@ end
 
 print( "ShellOS(SOS) 0.1" )
 print( "Made by: LeDark Lua" )
-
-local running = false
-local co = nil
 local function readCommands()
 	local list = fs.list( "rom/programs/" )
 	for i=1, #list do
@@ -154,17 +175,7 @@ function update( dt )
 			sys.textInput = ""
 			if commands[ input[ 1 ] ] == nil then
 				if fs.exists( shell.getCurrentDir()..input[ 1 ] ) and fs.getInfo(shell.getCurrentDir()..input[1]).type == 'file' then
-					local file = fs.open( shell.getCurrentDir()..input[ 1 ], 'r' )
-					local c = file:read()
-					file:close()
-					cursorY = cursorY + 6
-					local ok, err = loadstring( c, shell.getCurrentDir()..input[ 1 ] )
-					if not ok then setColor( 14, 2, 2 ) print( err ) end
-					co = coroutine.create( function()
-						local ok, err = pcall( ok, unpack( input, 2 ) )
-						if not ok then error( err, 0 ) end
-					end )
-					running = true
+					shell.run( shell.getCurrentDir()..input[ 1 ], unpack( input, 2 ) )
 				else
 					setColor( 14, 2, 2 )
 					msg = "Unknown command or file: "..input[ 1 ]
