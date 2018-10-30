@@ -38,114 +38,149 @@ local function drawCursor( offset, y )
 	gfx.drawLine( num, y+5, num+2, y+5, { col, col, col } )
 end
 
+local function calc( a )
+	local b = 0
+	while b < a do
+		b = b + 4
+		if b == a then
+			return a
+		end
+	end
+	return b - 4
+end
+local bottom = false
+
 while true do
 	coroutine.yield()
 	gfx.clear()
+	local currX = (math.floor(#lines/10)*4)
+	local mx, my = sys.getMousePos()
 	local lastInput=lines[currLine]
-	if sys.keyPressed( "up" ) then
-		if currLine > 1 then
-			currLine = currLine - 1
-			if cursorX > #lines[currLine]*4 then
-				cursorX = #lines[currLine]*4
-				lastInput = lines[currLine]
-				sys.textInput = lines[currLine]
-			else
-				lastInput = lines[currLine]
-				sys.textInput = lines[currLine]
+	gfx.drawFillRect( 0, gfx.height-7, gfx.width-1, 7 )
+	if sys.keyPressed( 'lctrl' ) then
+		bottom = not bottom
+	end
+	if bottom == false then
+		if sys.mousePressed( 1 ) then
+			local tx = mx-8-currX
+			currLine = math.round((my/6)+.5)
+			if currLine > #lines then
+				currLine = #lines
+			elseif currLine <= 0 then
+				currLine = 1
 			end
-			updateCursor = true
-		end
-	elseif sys.keyPressed( "down" ) then
-		if currLine < #lines then
-			currLine = currLine + 1
-			if cursorX > #lines[currLine]*4 then
-				cursorX = #lines[currLine]*4
-				lastInput = lines[currLine]
-				sys.textInput = lines[currLine]
-			else
-				lastInput = lines[currLine]
-				sys.textInput = lines[currLine]
+			lastInput=lines[currLine]
+			sys.textInput = lastInput
+			if tx >= 0 and tx < #lastInput*4 then
+				cursorX = calc( tx )
+			elseif tx >= #lastInput*4 then
+				cursorX = #lastInput*4
 			end
-			updateCursor = true
 		end
-	elseif sys.keyPressed( "left" ) then
-		if cursorX > 1 then
-			cursorX = cursorX - 4
-			updateCursor = true
-		end
-	elseif sys.keyPressed( "right" ) then
-		if cursorX < #lastInput*4 then
-			cursorX = cursorX + 4
-			updateCursor = true
-		end
-	elseif sys.keyPressed( "return" ) then
-		currLine = currLine + 1
-		table.insert( lines, currLine, '' )
-		sys.textInput = ''
-		lastInput = ''
-		cursorX = 0
-	elseif sys.keyPressed( "backspace" ) then
-		local cx = math.floor(cursorX/4)
-		if cx >= 1 then
-			local left = lastInput:sub( 1, cx-1 )
-			local right = lastInput:sub( cx+1 )
-			sys.textInput = left..right
-			cursorX = cursorX - 4
-			lines[currLine]=sys.textInput
-			updateCursor = true
-		else
-			if #lines > 1 then
-				updateCursor = true
+
+		if sys.keyPressed( "up" ) then
+			if currLine > 1 then
 				currLine = currLine - 1
-				table.remove( lines, currLine + 1 )
-				local x = (#lines[ currLine ] * 4)-4
-				if x <= 0 then
-					cursorX = 0
+				if cursorX > #lines[currLine]*4 then
+					cursorX = #lines[currLine]*4
+					lastInput = lines[currLine]
+					sys.textInput = lines[currLine]
 				else
-					cursorX = x
+					lastInput = lines[currLine]
+					sys.textInput = lines[currLine]
+				end
+				updateCursor = true
+			end
+		elseif sys.keyPressed( "down" ) then
+			if currLine < #lines then
+				currLine = currLine + 1
+				if cursorX > #lines[currLine]*4 then
+					cursorX = #lines[currLine]*4
+					lastInput = lines[currLine]
+					sys.textInput = lines[currLine]
+				else
+					lastInput = lines[currLine]
+					sys.textInput = lines[currLine]
+				end
+				updateCursor = true
+			end
+		elseif sys.keyPressed( "left" ) then
+			if cursorX > 1 then
+				cursorX = cursorX - 4
+				updateCursor = true
+			end
+		elseif sys.keyPressed( "right" ) then
+			if cursorX < #lastInput*4 then
+				cursorX = cursorX + 4
+				updateCursor = true
+			end
+		elseif sys.keyPressed( "return" ) then
+			currLine = currLine + 1
+			table.insert( lines, currLine, '' )
+			sys.textInput = ''
+			lastInput = ''
+			cursorX = 0
+		elseif sys.keyPressed( "backspace" ) then
+			local cx = math.floor(cursorX/4)
+			if cx >= 1 then
+				local left = lastInput:sub( 1, cx-1 )
+				local right = lastInput:sub( cx+1 )
+				sys.textInput = left..right
+				cursorX = cursorX - 4
+				lines[currLine]=sys.textInput
+				updateCursor = true
+			else
+				if #lines > 1 then
+					updateCursor = true
+					currLine = currLine - 1
+					table.remove( lines, currLine + 1 )
+					local x = (#lines[ currLine ] * 4)-4
+					if x <= 0 then
+						cursorX = 0
+					else
+						cursorX = x
+					end
 				end
 			end
+		else
+			if lines[currLine] ~= sys.textInput then
+				local cx = math.floor(cursorX*(1/4))
+				local len = #sys.textInput
+				local left = lastInput:sub( 0, cx )..sys.textInput:sub( len, len )
+				local right = lastInput:sub( cx+1 )
+				sys.textInput = left..right
+				lines[currLine] = sys.textInput
+				cursorX = cursorX + 4
+			end
 		end
+		local h = font.getHeight()+1
+		for i=showLines, #lines+(showLines-1) do
+			local y=(i-1)*h
+			gfx.print( i, 0, y )
+			gfx.print( lines[ i ], 8+currX, y )
+		end
+		gfx.drawLine( 5+currX, 0, 5+currX, gfx.height )
+		drawCursor( currX+8, (currLine*h)-h )
+		updateCursor = false
 	else
-		if lines[currLine] ~= sys.textInput then
-			local cx = math.floor(cursorX*(1/4))
-			local len = #sys.textInput
-			local left = lastInput:sub( 0, cx )..sys.textInput:sub( len, len )
-			local right = lastInput:sub( cx+1 )
-			sys.textInput = left..right
-			lines[currLine] = sys.textInput
-			cursorX = cursorX + 4
+		local highlightSave = false
+		local highlightClose = false
+		gfx.print( "Save", 1, gfx.height-6, GREEN )
+		if mx >= 21 and mx < 38 then
+			highlightClose = true
+		else
+			highlightClose = false
 		end
-	end
-	local currX = (math.floor(#lines/10)*4)
-	local h = font.getHeight()+1
-	for i=showLines, #lines+(showLines-1) do
-		local y=(i-1)*h
-		gfx.print( i, 0, y )
-		gfx.print( lines[ i ], 8+currX, y )
-	end
-	local mx, my = sys.getMousePos()
-	gfx.drawLine( 5+currX, 0, 5+currX, gfx.height )
-	drawCursor( currX+8, (currLine*h)-h )
-	updateCursor = false
-	local highlightSave = false
-	local highlightClose = false
-	gfx.drawFillRect( 0, gfx.height-7, gfx.width-1, 7 )
-	gfx.print( "Save", 1, gfx.height-6, GREEN )
-	if mx >= 21 and mx < 38 then
-		highlightClose = true
-	else
-		highlightClose = false
-	end
-	if highlightClose == true then
-		if sys.mousePressed( 1 ) then
-			gfx.clear()
-			sys.textInput = ''
-			error()
+		if highlightClose == true then
+			if sys.mousePressed( 1 ) then
+				gfx.clear()
+				sys.textInput = ''
+				error()
+			end
+			gfx.drawFillRect( 20, gfx.height-6, 21, 5, DARKER )	
 		end
-		gfx.drawFillRect( 20, gfx.height-6, 21, 5, DARKER )	
+		gfx.print( "Close", 21, gfx.height-6, GREEN )
 	end
-	gfx.print( "Close", 21, gfx.height-6, GREEN )
 	gfx.drawImage( mouseImg, mx, my )
 end
 
