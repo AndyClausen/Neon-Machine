@@ -1,6 +1,6 @@
 local CREDITS = {
 	"LeDark Lua a.k.a. Laurynas Šuopys",
-	"Andreas \"Andy\" Clausen"
+	"Andreas \"Andy\" Clausen",
 }
 
 local socket = require("socket")
@@ -125,6 +125,9 @@ G_ENV = {
 			end
 		end;
 	};
+	[ "credits" ] = function()
+		return CREDITS
+	end;
 	[ "fs" ] = {
 		[ "getName" ] = function( path )
 			local lastIndex = 1
@@ -454,6 +457,8 @@ G_ENV = {
 			end
 			return false
 		end;
+		[ "setKeyRepeat" ] = love.keyboard.setKeyRepeat;
+		[ "getKeyRepeat" ] = love.keyboard.hasKeyRepeat;
 	}
 }
 
@@ -552,7 +557,9 @@ function love.load()
 	if love.system.getOS() == "Android" then
 		love.keyboard.setTextInput( true )
 		love.keyboard.setKeyRepeat( true )
-		win.size = 2
+		win.scale = 2
+		wins = 2
+		winss = 1/2
 	end
 	love.filesystem.setIdentity( "Neon Machine", false )
 	love.window.setMode(0, 0)
