@@ -44,6 +44,7 @@ local mousegetX = love.mouse.getX
 local mousegetY = love.mouse.getY
 local lfgi = love.filesystem.getInfo
 local lfgdi = love.filesystem.getDirectoryItems
+local osType = "computer"
 local function determineSize( dir )
 	local size = 0
 	local files = lfgdi( dir )
@@ -368,7 +369,7 @@ G_ENV = {
 		end;
 		[ "setScreenMode" ] = function( mode )
 			if mode == "low" then
-				if love.system.getOS() == "Android" then
+				if osType == "pocket" then
 					win.scale = 1
 					wins = 1
 					winss = 1
@@ -378,7 +379,7 @@ G_ENV = {
 					winss = 1/3
 				end
 			elseif mode == "high" then
-				if love.system.getOS() == "Android" then
+				if osType == "pocket" then
 					win.scale = 3
 					wins = 3
 					winss = 1/3
@@ -388,7 +389,7 @@ G_ENV = {
 					winss = 1/5
 				end
 			else
-				if love.system.getOS() == "Android" then
+				if osType == "pocket" then
 					win.scale = 2
 					wins = 2
 					winss = 1/2
@@ -425,9 +426,13 @@ G_ENV = {
 			return CPU_SPEED
 		end;
 		[ "textInput" ] = "";
-		[ "isKeyDown" ] = love.keyboard.isDown;
+		[ "keyDown" ] = love.keyboard.isDown;
 		[ "getMousePos" ] = function()
-			return floor(mousegetX() * winss), floor(mousegetY() * winss)
+			if osType == "pocket" then
+				return floor((mousegetX()-screen_xoff) * winss), floor((mousegetY()-screen_yoff) * winss)
+			else
+				return floor(mousegetX() * winss), floor(mousegetY() * winss)
+			end
 		end;
 		[ "mouseIsDown" ] = love.mouse.isDown;
 		[ "mousePressed" ] = function( key )
@@ -459,6 +464,9 @@ G_ENV = {
 		end;
 		[ "setKeyRepeat" ] = love.keyboard.setKeyRepeat;
 		[ "getKeyRepeat" ] = love.keyboard.hasKeyRepeat;
+		[ "getMachineType" ] = function()
+			return osType
+		end;
 	}
 }
 
@@ -474,14 +482,22 @@ function love.keyreleased(key)
 	currKeyReleased = key
 end
 
+function love.wheelmoved(x, y)
+	if y > 0 then
+		currMousePressed = "wu"
+		currMouseReleased = "wd"
+	elseif y < 0 then
+		currMousePressed = "wd"
+		currMouseReleased = "wu"
+    end
+end
+
 function love.mousepressed(_,_,key)
 	currMousePressed = key
-	currMouseReleased = 0
 end
 
 function love.mousereleased(_,_,key)
 	currMouseReleased = key
-	currMousePressed = 0
 end
 
 local setColor = love.graphics.setColor
@@ -555,6 +571,7 @@ end
 
 function love.load()
 	if love.system.getOS() == "Android" then
+		osType = "pocket"
 		love.keyboard.setTextInput( true )
 		love.keyboard.setKeyRepeat( true )
 		win.scale = 2
@@ -565,7 +582,7 @@ function love.load()
 	love.window.setMode(0, 0)
 	screen_xoff = love.graphics.getWidth()/2-(win.width*win.scale/2)
 	screen_yoff = love.graphics.getHeight()/2-(win.height*win.scale/2)
-	if love.system.getOS() ~= "Android" then
+	if osType ~= "pocket" then
 		success = love.window.setMode( round(love.graphics.getWidth()/win.scale), round(love.graphics.getHeight()/win.scale), {
 			[ "vsync" ] = false;
 			[ "stencil" ] = false;
@@ -586,7 +603,7 @@ local counter = 0
 local genvu = G_ENV.update
 local setCanvas = love.graphics.setCanvas
 function love.update( dt )
-	if love.system.getOS() == "Android" then
+	if osType == "pocket" then
 		local touches = love.touch.getTouches()
 		for i, id in ipairs(touches) do
 			local x, y=love.touch.getPosition(id)
@@ -634,19 +651,8 @@ end
 local floor = math.floor
 local draw = love.graphics.draw
 function love.draw()
-	if screen_xoff and screen_yoff then
-		--for i=0, gfxSize do
-			--if gfa[ i ] > 0 then
-				--local curr = gfx[ i ]
-				--local b = curr[ 3 ]-blueCutoff
-				--if b < 0 then b = 0 end
-				--setColor( (curr[ 1 ]*17)*twofivefive, (curr[ 2 ]*17)*twofivefive, (b*17)*twofivefive )
-				--point( screen_xoff+(i%winw)*wins, screen_yoff+floor(i*winww)*wins )
-			--end
-		--end
-		setColor( 1, 1, 1 )
-		draw( canvas, screen_xoff, screen_yoff, 0, wins, wins )
-	end
+	setColor( 1, 1, 1 )
+	draw( canvas, screen_xoff, screen_yoff, 0, wins, wins )
 end
 
 
