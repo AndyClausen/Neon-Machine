@@ -58,22 +58,6 @@ local function parseCommands( input )
 	return cm
 end
 
-gfx.loadImage = function( path )
-	local ok, err = pcall(loadstring("return "..fs.read(path)))
-	if not ok then error(err,0) end
-	return err
-end
-gfx.drawImage = function( spr, x, y )
-	for yy=1, spr.height do
-		for xx=1, spr.width do
-			local c=spr[yy][xx] or {0,0,0}
-			if( c[1] > -1 ) then
-				gfx.putPixel(x+(xx-1), y+(yy-1), c)
-			end
-		end
-	end
-end
-
 local function shellParsePath( input )
 	local cm = {}
 	local word = ""
@@ -257,6 +241,10 @@ function update( dt )
 			end
 		elseif coroutine.status( co ) == "dead" then
 			running = false
+		end
+		if sys.keyDown( 'lctrl' ) == true and sys.keyPressed( 't' ) then
+			running = false
+			co = nil
 		end
 	end
 end

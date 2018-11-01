@@ -1,0 +1,20 @@
+local function input( c )
+	local i=1
+	return {
+		["peek"]=function()
+			return c:sub(i+1,i+1)
+		end;
+		["next"]=function()
+			local v=c:sub(i,i)
+			i = i + 1
+			return v
+		end;
+		["eof"]=function()
+			return i>#c
+		end;
+	}
+end
+
+local function toks( input )
+	
+end

@@ -26,6 +26,10 @@ gfx.drawFillRectAlpha=function(x, y, w, h, rgba)
 	end
 end
 gfx.drawLine=function(x1, y1, x2, y2, rgb)
+	x1=round(x1)
+	x2=round(x2)
+	y1=round(y1)
+	y2=round(y2)
 	local dx = abs(x2-x1)
 	local dy = abs(y2-y1)
 	local sx, sy
@@ -56,6 +60,21 @@ gfx.drawRect=function(x, y, w, h, rgb)
 	dl( x+w, y, x+w, y+h, rgb )
 	dl( x+w, y+h, x, y+h, rgb )
 	dl( x, y+h, x, y, rgb )
+end
+gfx.loadImage = function( path )
+	local ok, err = pcall(loadstring("return "..fs.read(path)))
+	if not ok then error(err,0) end
+	return err
+end
+gfx.drawImage = function( spr, x, y )
+	for yy=1, spr.height do
+		for xx=1, spr.width do
+			local c=spr[yy][xx] or {0,0,0}
+			if( c[1] > -1 ) then
+				gfx.putPixel(x+(xx-1), y+(yy-1), c)
+			end
+		end
+	end
 end
 font={
 	["fonts"]={};

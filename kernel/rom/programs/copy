@@ -1,0 +1,24 @@
+local tArgs={...}
+if #tArgs~=2 then
+	error( "Usage: copy <file> <path>" ,0)
+end
+if tArgs[1] == tArgs[2] then
+	error( "Files names match!", 0 )
+end
+local path = shell.getCurrentDir()..tArgs[1]
+local path2 = shell.getCurrentDir()..tArgs[2]
+if fs.exists( path ) then
+	if fs.exists( path2 ) == false then
+		local file=fs.open( path, 'r' )
+		local c = file:read()
+		file:close()
+		file = fs.open( path2, 'w' )
+		file:write( c )
+		file:close()
+		print( "Copied "..tArgs[1].." to "..tArgs[2] )
+	else
+		error( "File: "..tArgs[2].." already exists!", 0 )
+	end
+else
+	error( "File: "..shell.getCurrentDir()..tArgs[1].." doesn't exist!", 0 )
+end

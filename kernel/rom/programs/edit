@@ -32,8 +32,9 @@ local sec = 0
 local col = 15
 local updateCursor = false
 local updateCursorCol = 0
+local transX = 0
 local function drawCursor( offset, y )
-	local num = offset+cursorX
+	local num = transX+(offset+cursorX)
 	local s = os.date("%S")
 	if s ~= sec or updateCursor then
 		sec = s
@@ -102,7 +103,8 @@ local CCOMMENT = {6,6,5}
 local CSTRING = {15,13,0}
 local CTEXT = {14,14,14}
 local COTHER = {12,1,8}
-local CFUNC = {0,7,11}
+local CFUNC = {0,7,13}
+local COBJ = {0,9,14}
 local CLUASTRCONCAT = {12,1,8}
 local CLUAARGS = {8,2,13}
 
@@ -114,7 +116,7 @@ local KEYWORDS = {
 		[ "for" ] = CKEYWORD;
 		[ "if" ] = CKEYWORD;
 		[ "do" ] = CKEYWORD;
-		[ "then" ] = CKEYWORD;
+		[ "then" ] = CKEYWORD;    
 		[ "else" ] = CKEYWORD;
 		[ "elseif" ] = CKEYWORD;
 		[ "end" ] = CKEYWORD;
@@ -189,7 +191,15 @@ local function writeHighlighted( x, y, sLine, alpha )
 			tryWrite( x, y, sLine, "^(%.%.%.(%.+))", CTEXT, nil, alpha ) or
 			tryWrite( x, y, sLine, "^(%.%.%.)", CLUAARGS, nil, alpha ) or
 			tryWrite( x, y, sLine, "^(%.%.)", CLUASTRCONCAT, nil, alpha ) or
-			tryWrite( x, y, sLine, "^[%w_]+%(", CFUNC, true, alpha ) or
+			tryWrite( x, y, sLine, "^[%w_]+%(", function( match )
+				local curr = KEYWORDS[ currIndent ]
+				if curr[ match ] then
+					return curr[ match ]
+				end
+				return CFUNC
+			end, true, alpha ) or
+			tryWrite( x, y, sLine, "^[%w_]+%.", COBJ, true, alpha ) or
+			tryWrite( x, y, sLine, "^[%w_]+%:", COBJ, true, alpha ) or
 			tryWrite( x, y, sLine, "^[%w_]+", function( match )
 				local curr = KEYWORDS[ currIndent ]
 				if curr[ match ] then
@@ -213,6 +223,8 @@ local clrscr = gfx.clear
 local coye = coroutine.yield
 local gemou = sys.getMousePos
 local drwln = gfx.drawLine
+local currMaxX = 0
+cursorX = 0
 while true do
 	coye()
 	local mx, my = gemou()
@@ -226,10 +238,10 @@ while true do
 			local y=(i-showLines)*h
 			if i==23+showLines then
 				prnt( i, 0, y, {7,7,7} )
-				writeHighlighted( 8+currX, y, lines[ i ], true )
+				writeHighlighted( transX+(8+currX), y, lines[i], true )
 			else
 				prnt( i, 0, y )
-				writeHighlighted( 8+currX, y, lines[ i ] )
+				writeHighlighted( transX+(8+currX), y, lines[i] )
 			end
 		end
 	end
@@ -253,13 +265,14 @@ while true do
 			elseif tx >= #lastInput*4 then
 				cursorX = #lastInput*4
 			end
+			currMaxX = cursorX
 			updateCursor = true
 		elseif sys.mousePressed( "wu" ) then
 			if showLines > 1 then
 				showLines = showLines - 1
 			end
 		elseif sys.mousePressed( "wd" ) then
-			if showLines <= #lines-25 then
+			if showLines <= #lines-23 then
 				showLines = showLines + 1
 			end
 		end
@@ -267,11 +280,12 @@ while true do
 		if sys.keyPressed( "up" ) then
 			if currLine > 1 then
 				currLine = currLine - 1
-				if cursorX > #lines[currLine]*4 then
+				if currMaxX > #lines[currLine]*4 then
 					cursorX = #lines[currLine]*4
 					lastInput = lines[currLine]
 					sys.textInput = lines[currLine]
 				else
+					cursorX = currMaxX
 					lastInput = lines[currLine]
 					sys.textInput = lines[currLine]
 				end
@@ -283,11 +297,12 @@ while true do
 		elseif sys.keyPressed( "down" ) then
 			if currLine < #lines then
 				currLine = currLine + 1
-				if cursorX > #lines[currLine]*4 then
+				if currMaxX > #lines[currLine]*4 then
 					cursorX = #lines[currLine]*4
 					lastInput = lines[currLine]
 					sys.textInput = lines[currLine]
 				else
+					cursorX = currMaxX
 					lastInput = lines[currLine]
 					sys.textInput = lines[currLine]
 				end
@@ -299,15 +314,43 @@ while true do
 		elseif sys.keyPressed( "left" ) then
 			if cursorX > 1 then
 				cursorX = cursorX - 4
+				currMaxX = cursorX
 				updateCursor = true
+			else
+				if currLine > 1 then
+					currLine = currLine - 1
+					sys.textInput = lines[currLine]
+					cursorX = #sys.textInput*4
+					currMaxX = cursorX
+					if currLine < showLines then
+						showLines = showLines - 1
+					end
+					updateCursor = true
+				end
 			end
 		elseif sys.keyPressed( "right" ) then
 			if cursorX < #lastInput*4 then
 				cursorX = cursorX + 4
+				currMaxX = cursorX
 				updateCursor = true
+				if (8+cursorX)+transX >= gfx.width then
+					transX = transX - 4
+				end
+			else
+				if currLine < #lines then
+					currLine = currLine + 1
+					sys.textInput = lines[currLine]
+					cursorX = 0
+					currMaxX = 0
+					if currLine > showLines+22 then
+						showLines = showLines + 1
+						transX = 0
+					end
+					updateCursor = true
+				end
 			end
 		elseif sys.keyPressed( "return" ) then
-			local cx = math.floor(cursorX*one4)
+			local cx = floor(cursorX*one4)
 			local half = lines[currLine]:sub( cx+1, #lines[currLine] )
 			lines[currLine]=lines[currLine]:sub(1, cx)
 			currLine = currLine + 1
@@ -316,7 +359,7 @@ while true do
 			lastInput = half
 			cursorX = 0
 		elseif sys.keyPressed( "backspace" ) then
-			local cx = math.floor(cursorX*one4)
+			local cx = floor(cursorX*one4)
 			if cx >= 1 then
 				local left = lastInput:sub( 1, cx-1 )
 				local right = lastInput:sub( cx+1 )
@@ -407,6 +450,3 @@ while true do
 	timer = timer - 1
 	if timer < 0 then timer = 0 savedStr = path end
 end
-
-
-

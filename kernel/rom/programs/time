@@ -1,0 +1,12 @@
+local tArgs = { ... }
+local min = os.date( '%M' )
+local hour = os.date( '%H' )
+if tArgs[1]=='h' then
+	hour = os.date( '%I' )
+end
+local day = os.date( '%A' )
+local month = os.date( '%B' )
+local daynum = os.date( '%d' )
+local year = os.date( '%Y' )
+
+print( month.." "..daynum.."("..day..") "..year.." - "..hour..":"..min )
