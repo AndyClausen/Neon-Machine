@@ -1,0 +1,38 @@
+require("kernel.rom.core.gui")
+local GUI = gui.GUI
+
+local g = GUI.new(100, 100)
+local mouseImg = gfx.loadImage( 'rom/mouse.img' )
+local color = {2,2,14}
+local running = true
+local lastHover
+
+g:addHitbox("test", function() color = {2,14,2} end, function() color[3] = 10 end, 10, 10, 20, 10, 10)
+g:addHitbox("exit", function() running = shell.clearScreen() sys.textInput = '' error() end,nil, 50, 50, 20, 10, 12)
+
+while running do
+    coroutine.yield()
+    gfx.clear()
+    local mx, my = sys.getMousePos()
+    local hitbox = g:getHitboxAtPoint(mx, my)
+    if not hitbox or hitbox ~= lastHover then
+        color[3] = 14
+        lastHover = nil
+    end
+    if hitbox and hitbox ~= lastHover then
+        hitbox.onHover()
+        lastHover = hitbox
+    end
+
+    gfx.drawRect(0,0,100,100,  {14,14,14})
+    gfx.drawFillRect(10, 10, 20, 10, color)
+    gfx.drawFillRect(50, 50, 20, 10, {14,2,2})
+
+    gfx.drawImage( mouseImg, mx, my )
+
+    if sys.mousePressed( 1 ) then
+        if hitbox then
+            hitbox.onClick()
+        end
+    end
+end
